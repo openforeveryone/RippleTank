@@ -1,0 +1,525 @@
+<html>
+
+<head>
+<title>Matthew Wellings &mdash; Water Ripple Demo</title>
+<meta http-equiv="content-type" content="text/html; charset=ISO-8859-1">
+
+<script type="text/javascript" src="gl-matrix.js"></script>
+<script type="text/javascript" src="Stats.js"></script>
+
+<script id="drop-fs" type="x-shader/x-fragment">
+    varying mediump vec2 pos;
+    uniform lowp float radius;
+    uniform lowp vec2 windowSize;
+    uniform lowp vec4 channelMask;
+    varying mediump vec2 screenPos;
+    void main(void)
+    {
+	lowp float r = distance(gl_FragCoord.xy, screenPos);
+	if( r > radius ) discard;
+	gl_FragColor = vec4(0,1,0,1);
+	highp float dropheight = cos(r/radius*3.141)/4.0 +.25;
+	gl_FragColor = channelMask*dropheight;
+    }
+</script>
+
+<script id="drop-vs" type="x-shader/x-vertex">
+    attribute highp vec4 vertex;
+    varying mediump vec2 screenPos;
+    uniform lowp float radius;
+    uniform lowp vec2 windowSize;
+    void main(void)
+    {
+	gl_PointSize = radius*2.0;
+//        gl_PointSize = 80.0;
+	// Convert position to window coordinates
+	screenPos = (vertex.xy/2.0+vec2(0.5,0.5)) * windowSize.xy;
+	gl_Position = vertex;
+    }
+</script>
+
+<script id="forcecalc-fs" type="x-shader/x-fragment">
+    uniform sampler2D waterLevelTex;
+    uniform mediump vec2 windowSize;
+    uniform mediump float time;
+    varying mediump vec2 pos;
+    varying mediump vec2 v_texcord;
+    void main(void)
+    {
+	  mediump vec2 currentpos = v_texcord; //Componant-wise division.
+	  mediump vec2 windowSizeR = vec2(1.0/windowSize.x, 1.0/windowSize.y);
+	  mediump vec4 averageNeighbourLevel = (
+		    texture2D(waterLevelTex, vec2(currentpos.x-windowSizeR.x, currentpos.y))
+		  + texture2D(waterLevelTex, vec2(currentpos.x+windowSizeR.x, currentpos.y))
+		  + texture2D(waterLevelTex, vec2(currentpos.x, currentpos.y-windowSizeR.y))
+		  + texture2D(waterLevelTex, vec2(currentpos.x, currentpos.y+windowSizeR.y)))/4.0;
+
+	  mediump vec4 leveldiff=averageNeighbourLevel-texture2D(waterLevelTex, currentpos);
+	  mediump vec4 k=vec4(1,1,1,1);
+	  mediump vec4 force = leveldiff*k; //Hooke's law
+      //    gl_FragColor=vec4(0,1,0,1);
+	  gl_FragColor = force;   //Integrating on Newton2 dobe by blending.
+      //    gl_FragColor = texture2D(waterLevelTex, currentpos);
+    }
+</script>
+
+<script id="forcecalc-vs" type="x-shader/x-vertex">
+      attribute highp vec4 vertex;
+      attribute highp vec2 texcord;
+      varying mediump vec2 pos;
+      varying mediump vec2 v_texcord;
+
+      void main(void)
+      {
+	  pos = vertex.xy;
+	  v_texcord = texcord;
+	  gl_Position = vertex;
+      }
+</script>
+
+<script id="integrate-fs" type="x-shader/x-fragment">
+      uniform sampler2D waterVelTex;
+      varying mediump vec2 v_texcord;
+
+      void main(void)
+      {
+	  gl_FragColor = texture2D(waterVelTex, v_texcord);
+      }
+</script>
+
+<script id="integrate-vs" type="x-shader/x-vertex">
+      attribute highp vec4 vertex;
+      attribute highp vec2 texcord;
+      varying mediump vec2 v_texcord;      
+      void main(void)
+      {	  
+	  v_texcord = texcord;
+	  gl_Position = vertex;
+      }
+</script>
+
+<script id="render-fs" type="x-shader/x-fragment">
+      uniform sampler2D s_texture;
+      varying mediump vec2 v_texcoord;
+      uniform mediump vec2 windowSize;
+      void main() {
+// 	  highp vec4 colour = texture2D(s_texture, v_texcoord);
+	  //In WebGL transparency is not ignored, so discard it now:
+// 	  gl_FragColor = vec4(0, 0,(colour.r*0.8+0.25)+(colour.g*0.2+0.25),  1.0);
+	  
+	  mediump vec2 currentpos = v_texcoord; //Componant-wise division.
+	  mediump vec2 windowSizeR = vec2(1.0/windowSize.x, 1.0/windowSize.y);
+	  mediump vec2 diffs = vec2(
+		    texture2D(s_texture, vec2(currentpos.x+windowSizeR.x, currentpos.y)).x
+		  - texture2D(s_texture, vec2(currentpos.x-windowSizeR.x, currentpos.y)).x,
+		    texture2D(s_texture, vec2(currentpos.x, currentpos.y+windowSizeR.y)).x
+		  - texture2D(s_texture, vec2(currentpos.x, currentpos.y-windowSizeR.y)).x);
+	  mediump vec3 va = vec3(1, 0, diffs.x*2.0);
+          mediump vec3 vb = vec3(0, 1, diffs.y*2.0);
+          mediump vec3 normalWS = normalize(cross(va,vb));//.rbg; //you may not need to swizzle the normal
+          
+//           gl_FragColor =  vec4(normalWS.xy,0, 1.0);
+          mediump vec4 color = vec4(0,0,0.4,1);
+	  mediump float specularity = 50.0;
+	  //As we are not rotating the view camera direction is always (0,0,1) and with light in (-1,1,1) halfvec is normalize(1,1,2).
+	  mediump vec3 toLightWS = vec3(-1,1,1);
+	  mediump vec3 halfVectorWS = normalize(vec3(-1,1,2));
+	  mediump float cosLightAngle = max(dot(normalWS, toLightWS), 0.0);
+	  mediump float cosSpecAngle = max(dot(normalWS, halfVectorWS), 0.0);      
+          gl_FragColor = color /** 0.2 */+ cosLightAngle * 0.4 + pow(cosSpecAngle, specularity);
+      }
+</script>
+
+<script id="render-vs" type="x-shader/x-vertex">
+    attribute highp vec4 posAttr;
+    attribute highp vec2 texcoordAttr;
+    varying lowp vec2 v_texcoord;
+    uniform highp mat4 matrix;
+    void main() {
+	v_texcoord=texcoordAttr;
+	gl_Position = matrix * posAttr;
+    }
+</script>
+
+<script type="text/javascript">
+
+    var gl;
+    function initGL(canvas) {
+        try {
+            gl = canvas.getContext("experimental-webgl");
+            gl.viewportWidth = canvas.width;
+            gl.viewportHeight = canvas.height;
+        } catch (e) {
+        }
+        if (!gl) {
+            console.log("Could not initialise WebGL.");
+        }
+    }
+
+
+    function getShader(gl, id) {
+        var shaderScript = document.getElementById(id);
+        if (!shaderScript) {
+            return null;
+        }
+
+        var str = "";
+        var k = shaderScript.firstChild;
+        while (k) {
+            if (k.nodeType == 3) {
+                str += k.textContent;
+            }
+            k = k.nextSibling;
+        }
+
+        var shader;
+        if (shaderScript.type == "x-shader/x-fragment") {
+            shader = gl.createShader(gl.FRAGMENT_SHADER);
+        } else if (shaderScript.type == "x-shader/x-vertex") {
+            shader = gl.createShader(gl.VERTEX_SHADER);
+        } else {
+            return null;
+        }
+
+        gl.shaderSource(shader, str);
+        gl.compileShader(shader);
+
+        if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+            alert(gl.getShaderInfoLog(shader));
+            return null;
+        }
+
+        return shader;
+    }
+
+    function getShaderProgram(gl, vertexShader, fragmentShader) {
+	var shaderProgram = gl.createProgram();
+        gl.attachShader(shaderProgram, vertexShader);
+        gl.attachShader(shaderProgram, fragmentShader);
+        gl.linkProgram(shaderProgram);
+
+        if (!gl.getProgramParameter(shaderProgram, gl.LINK_STATUS)) {
+            alert("Could not initialise shaders");
+        }
+        return shaderProgram;
+    }
+    
+    var dropShaderProgram;
+    var forcecalcShaderProgram;
+    var integrateShaderProgram;
+    var renderShaderProgram;
+
+    function initShaders() {
+        var dropFragmentShader = getShader(gl, "drop-fs");
+        var dropVertexShader = getShader(gl, "drop-vs");
+        var forcecalcFragmentShader = getShader(gl, "forcecalc-fs");
+        var forcecalcVertexShader = getShader(gl, "forcecalc-vs");
+        var integrateFragmentShader = getShader(gl, "integrate-fs");
+        var integrateVertexShader = getShader(gl, "integrate-vs");
+        var renderFragmentShader = getShader(gl, "render-fs");
+        var renderVertexShader = getShader(gl, "render-vs");
+
+	dropShaderProgram = getShaderProgram(gl, dropFragmentShader, dropVertexShader);
+	forcecalcShaderProgram = getShaderProgram(gl, forcecalcFragmentShader, forcecalcVertexShader);
+	integrateShaderProgram = getShaderProgram(gl, integrateFragmentShader, integrateVertexShader);
+	renderShaderProgram = getShaderProgram(gl, renderFragmentShader, renderVertexShader);
+
+        gl.useProgram(dropShaderProgram);
+        dropShaderProgram.vertexAttribute = gl.getAttribLocation(dropShaderProgram, "vertex");
+        dropShaderProgram.radiusUniform = gl.getUniformLocation(dropShaderProgram, "radius");
+        dropShaderProgram.windowSizeUniform = gl.getUniformLocation(dropShaderProgram, "windowSize");
+        dropShaderProgram.channelMaskUniform = gl.getUniformLocation(dropShaderProgram, "channelMask");
+                
+        gl.useProgram(forcecalcShaderProgram);
+        forcecalcShaderProgram.vertexAttribute = gl.getAttribLocation(forcecalcShaderProgram, "vertex");
+        forcecalcShaderProgram.texcoordAttribute = gl.getAttribLocation(forcecalcShaderProgram, "texcord");
+        forcecalcShaderProgram.windowSizeUniform = gl.getUniformLocation(forcecalcShaderProgram, "windowSize");
+        forcecalcShaderProgram.timeUniform = gl.getUniformLocation(forcecalcShaderProgram, "time");
+        
+        gl.useProgram(integrateShaderProgram);
+        integrateShaderProgram.vertexAttribute = gl.getAttribLocation(integrateShaderProgram, "vertex");
+        integrateShaderProgram.texcoordAttribute = gl.getAttribLocation(integrateShaderProgram, "texcord");
+        
+        gl.useProgram(renderShaderProgram);
+        renderShaderProgram.vertexAttribute = gl.getAttribLocation(renderShaderProgram, "posAttr");
+        renderShaderProgram.texcoordAttribute = gl.getAttribLocation(renderShaderProgram, "texcoordAttr");
+        renderShaderProgram.matrixUniform = gl.getUniformLocation(renderShaderProgram, "matrix");     
+        renderShaderProgram.windowSizeUniform = gl.getUniformLocation(renderShaderProgram, "windowSize");   
+    }
+    
+    var waterHeightTX;
+    var waterHeightFramebuffer;    
+    var waterVelTX;
+    var waterVelFramebuffer;
+    var WaterBufferSize=512;
+    
+    
+    function initFrameBuffers() {
+	var ext = gl.getExtension('OES_texture_float');
+	if (!ext) {
+	  alert("May not work without OES_texture_float");
+	}
+	
+	waterHeightTX = gl.createTexture();
+	gl.bindTexture(gl.TEXTURE_2D, waterHeightTX);	
+	//Need a replacement for this
+// 	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_BORDER);
+// 	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_BORDER);
+// 	var borderColour = [0.5, 0.0, 0.0, 1.0];
+// 	gl.texParameterf(gl.TEXTURE_2D, gl.TEXTURE_BORDER_COLOR, borderColour);
+	gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, WaterBufferSize, WaterBufferSize, 0, gl.RGBA, gl.FLOAT, null);
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+	
+	waterHeightFramebuffer = gl.createFramebuffer();
+	gl.bindFramebuffer(gl.FRAMEBUFFER, waterHeightFramebuffer);
+	gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, waterHeightTX, 0);
+	gl.viewport(0, 0, WaterBufferSize, WaterBufferSize);    
+	gl.clearColor(0.0, 0.0, 0.0, 1.0);        
+        gl.clear(gl.COLOR_BUFFER_BIT);
+// 	gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+
+	waterVelTX = gl.createTexture();
+	gl.bindTexture(gl.TEXTURE_2D, waterVelTX);	
+	gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, WaterBufferSize, WaterBufferSize, 0, gl.RGBA, gl.FLOAT, null);
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+	
+	waterVelFramebuffer = gl.createFramebuffer();
+	gl.bindFramebuffer(gl.FRAMEBUFFER, waterVelFramebuffer);
+	gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, waterVelTX, 0);
+	gl.viewport(0, 0, WaterBufferSize, WaterBufferSize);    
+	gl.clearColor(0.0, 0.0, 0.0, 1.0);        
+        gl.clear(gl.COLOR_BUFFER_BIT);
+	gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    }
+    
+    
+    var VertexPositionBuffer;
+    var TexCoordPositionBuffer;
+    var DropPositionBuffer;
+    
+    function initBuffers() {    
+      VertexPositionBuffer = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, VertexPositionBuffer);
+      var vertices = [
+	  -1, 1,
+	  -1, -1,
+	  1, -1,
+
+	  1, 1,
+	  1, -1,
+	  -1, 1
+      ];
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
+      VertexPositionBuffer.itemSize = 2;
+      VertexPositionBuffer.numItems = 6;
+// 
+      TexCoordPositionBuffer = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, TexCoordPositionBuffer);
+      var texcords = [
+	  0, 1,
+	  0, 0,
+	  1, 0,
+
+	  1, 1,
+	  1, 0,
+	  0, 1
+      ];
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(texcords), gl.STATIC_DRAW);
+      TexCoordPositionBuffer.itemSize = 2;
+      TexCoordPositionBuffer.numItems = 6;
+      
+      DropPositionBuffer = gl.createBuffer();
+    }
+
+    var mvMatrix;
+    var frameNumber=0;
+    var newDrops = [];
+    var DropSize = 40;
+
+    function drawScene() {
+// 
+// //         mat4.perspective(45, gl.viewportWidth / gl.viewportHeight, 0.1, 100.0, pMatrix);
+// 
+        
+	gl.disable(gl.DEPTH_TEST);
+	gl.disable(gl.CULL_FACE);
+        frameNumber++;      
+        //Add a new drop 200 frames in:
+        if (frameNumber==200)
+        {
+	  newDrops = [[-0.5,-0.5]];
+	}
+	//Add the drops that are in the queue to the framebuffer:
+        if (newDrops.length)
+        {        
+	    console.log("Preparing to add new drops");
+	    gl.bindFramebuffer(gl.FRAMEBUFFER, waterHeightFramebuffer);
+	    gl.viewport(0, 0, WaterBufferSize, WaterBufferSize);
+	    gl.useProgram(dropShaderProgram);
+	    gl.uniform2f(dropShaderProgram.windowSizeUniform, WaterBufferSize, WaterBufferSize);
+	    gl.uniform1f(dropShaderProgram.radiusUniform, DropSize/2.0);
+	    if (frameNumber==1)
+		gl.uniform4f(dropShaderProgram.channelMaskUniform, 0,1,0,0);
+	    else
+		gl.uniform4f(dropShaderProgram.channelMaskUniform, 1,0,0,0);
+	    //Add drops
+	    var posArray = [];
+	    for(var drop =0; drop < newDrops.length; drop++)
+	    {        
+		  console.log("Adding drop " + drop + " " +newDrops[drop][0] + " " + newDrops[drop][1]);
+		  posArray[drop*2+0]=newDrops[drop][0];
+		  posArray[drop*2+1]=newDrops[drop][1];
+	    }	    
+	    console.log(posArray.toString());
+	    gl.enableVertexAttribArray(dropShaderProgram.vertexAttribute);
+	    gl.bindBuffer(gl.ARRAY_BUFFER, DropPositionBuffer);
+	    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(posArray), gl.DYNAMIC_DRAW);	    
+	    gl.vertexAttribPointer(dropShaderProgram.vertexAttribute, 2, gl.FLOAT, false, 0, 0);
+	    gl.drawArrays(gl.POINTS, 0, newDrops.length);
+	    newDrops = [];
+        }
+        
+	//Calc water velocity:	
+	gl.activeTexture(gl.TEXTURE0);
+	gl.bindTexture(gl.TEXTURE_2D, waterHeightTX);
+	gl.bindFramebuffer(gl.FRAMEBUFFER, waterVelFramebuffer);  
+        gl.viewport(0, 0, WaterBufferSize, WaterBufferSize);
+//         gl.clearColor(1.0, 1.0, 0.0, 1.0);
+//         gl.clear(gl.COLOR_BUFFER_BIT); 
+        gl.useProgram(forcecalcShaderProgram);
+        gl.enableVertexAttribArray(forcecalcShaderProgram.vertexAttribute);
+        gl.enableVertexAttribArray(forcecalcShaderProgram.texcoordAttribute);
+        gl.bindBuffer(gl.ARRAY_BUFFER, VertexPositionBuffer);
+        gl.vertexAttribPointer(forcecalcShaderProgram.vertexPositionAttribute, VertexPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
+        gl.bindBuffer(gl.ARRAY_BUFFER, TexCoordPositionBuffer);
+        gl.vertexAttribPointer(forcecalcShaderProgram.texcoordAttribute, TexCoordPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
+	gl.uniform2f(forcecalcShaderProgram.windowSizeUniform, WaterBufferSize, WaterBufferSize);
+	gl.enable(gl.BLEND);
+	gl.blendEquation(gl.FUNC_ADD);
+	gl.blendFunc(gl.ONE,gl.ONE);
+	gl.drawArrays(gl.TRIANGLES, 0, VertexPositionBuffer.numItems);
+	
+	//Integrate water velocity:	
+	gl.bindTexture(gl.TEXTURE_2D, waterVelTX);
+	gl.bindFramebuffer(gl.FRAMEBUFFER, waterHeightFramebuffer); 
+        gl.viewport(0, 0, WaterBufferSize, WaterBufferSize); 
+//         gl.clearColor(1.0, 0.0, 0.0, 1.0);
+//         gl.clear(gl.COLOR_BUFFER_BIT); 
+        gl.useProgram(integrateShaderProgram);
+        gl.enableVertexAttribArray(integrateShaderProgram.vertexAttribute);
+        gl.enableVertexAttribArray(integrateShaderProgram.texcoordAttribute);
+	gl.enable(gl.BLEND);
+	gl.blendColor(0.995,1,1,1);
+	gl.blendEquation(gl.FUNC_ADD);
+	gl.blendFunc(gl.CONSTANT_COLOR,gl.CONSTANT_COLOR);
+	gl.drawArrays(gl.TRIANGLES, 0, VertexPositionBuffer.numItems);
+        
+    
+        //Render to screen
+	gl.bindFramebuffer(gl.FRAMEBUFFER, null);    
+        gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
+        gl.clearColor(0.0, 0.0, 0.0, 0.0);
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+        
+	gl.bindTexture(gl.TEXTURE_2D, waterHeightTX);
+    
+	mvMatrix = mat4.create();
+        mat4.identity(mvMatrix);     
+//         mat4.perspective(mvMatrix, 1, gl.viewportWidth/gl.viewportHeight, 0.1, 100.0);
+//         mat4.translate(mvMatrix, mvMatrix, [0.0, 0.0, -2.0]);   
+//         mat4.rotateY(mvMatrix, mvMatrix, frameNumber/60.0);
+//         console.log(frameNumber);
+	
+        gl.useProgram(renderShaderProgram);
+	gl.enableVertexAttribArray(renderShaderProgram.vertexAttribute);
+	gl.enableVertexAttribArray(renderShaderProgram.texcoordAttribute);
+	
+        gl.bindBuffer(gl.ARRAY_BUFFER, VertexPositionBuffer);
+        gl.vertexAttribPointer(renderShaderProgram.vertexPositionAttribute, VertexPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
+        gl.bindBuffer(gl.ARRAY_BUFFER, TexCoordPositionBuffer);
+        gl.vertexAttribPointer(renderShaderProgram.texcoordAttribute, TexCoordPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
+        gl.uniformMatrix4fv(renderShaderProgram.matrixUniform, false, mvMatrix);
+	gl.uniform2f(renderShaderProgram.windowSizeUniform, WaterBufferSize, WaterBufferSize);
+	gl.disable(gl.BLEND);
+	gl.drawArrays(gl.TRIANGLES, 0, VertexPositionBuffer.numItems);
+
+//         gl.enableVertexAttribArray(dropShaderProgram.vertexAttribute);
+//         mat4.translate(mvMatrix, [-1.5, 0.0, -7.0]);
+//         gl.bindBuffer(gl.ARRAY_BUFFER, triangleVertexPositionBuffer);
+//         gl.vertexAttribPointer(shaderProgram.vertexPositionAttribute, triangleVertexPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
+//         setMatrixUniforms();
+//         gl.drawArrays(gl.TRIANGLES, 0, triangleVertexPositionBuffer.numItems);
+// 
+// 
+//         mat4.translate(mvMatrix, [3.0, 0.0, 0.0]);
+//         gl.bindBuffer(gl.ARRAY_BUFFER, squareVertexPositionBuffer);
+//         gl.vertexAttribPointer(shaderProgram.vertexPositionAttribute, squareVertexPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
+//         setMatrixUniforms();
+//         gl.drawArrays(gl.TRIANGLE_STRIP, 0, squareVertexPositionBuffer.numItems);
+    }
+    var stats;
+    
+    function renderLoop()
+    {    
+    
+	stats.begin();
+	drawScene();
+	stats.end();
+// 	window.setTimeout(renderLoop, 1000 / 60);
+	requestAnimationFrame( renderLoop );
+    }
+
+    function webGLStart() {
+	stats = new Stats();	
+	stats.setMode( 0 ); // 0: fps, 1: ms, 2: mb
+	// align top-left
+	stats.domElement.style.position = 'absolute';
+	stats.domElement.style.left = '8px';
+	stats.domElement.style.top = '530px';
+	document.body.appendChild( stats.domElement );
+	
+        var canvas = document.getElementById("water-canvas");
+        initGL(canvas);
+        initShaders();
+        initFrameBuffers();
+        initBuffers();
+
+        gl.enable(gl.DEPTH_TEST);
+        
+        canvas.addEventListener('mousedown', function(event) {
+	    var x = event.pageX - canvas.offsetLeft,
+		y = event.pageY - canvas.offsetTop;	
+// 	    x = (x / 2.0 + 0.5) * WaterBufferSize;
+	    x = (x / canvas.clientWidth - 0.5) * 2;
+	    y = -(y / canvas.clientWidth - 0.5) * 2;
+	    drop = [x,y];
+	    newDrops.push(drop);
+//             alert("Clicked " + x + " " + y);
+        });
+        
+        for (var i = 0; i < 20; i++)
+        {
+	    x = (Math.random() - 0.5) * 2;
+	    y = -(Math.random() - 0.5) * 2;
+	    drop = [x,y];
+	    newDrops.push(drop);
+        }
+
+	requestAnimationFrame( renderLoop );
+//         renderLoop();
+    }
+   
+</script>
+
+
+</head>
+
+
+<body onload="webGLStart();">
+    <canvas id="water-canvas" style="border: none;" width="512" height="512"></canvas>
+    
+</body>
+
+</html>
