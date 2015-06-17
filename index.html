@@ -337,6 +337,8 @@
     var frameNumber=0;
     var newDrops = [];
     var DropSize = 40;
+    var rotateAnim = false;
+    var rotateProgress = 0;
 
     function drawScene() {
 // 
@@ -426,11 +428,23 @@
 	gl.bindTexture(gl.TEXTURE_2D, waterHeightTX);
     
 	mvMatrix = mat4.create();
-        mat4.identity(mvMatrix);     
-//         mat4.perspective(mvMatrix, 1, gl.viewportWidth/gl.viewportHeight, 0.1, 100.0);
-//         mat4.translate(mvMatrix, mvMatrix, [0.0, 0.0, -2.0]);   
-//         mat4.rotateY(mvMatrix, mvMatrix, frameNumber/60.0);
-//         console.log(frameNumber);
+        
+	if (rotateAnim)
+	{
+	    rotateProgress+=1.0/60.0;
+	    if (rotateProgress>=1)
+	      rotateAnim=false;
+	}
+	if (rotateProgress==0)
+	  mat4.identity(mvMatrix); 
+	else
+	{
+	    var rotateProgressNL = (Math.sin((rotateProgress+1.5)*Math.PI)+1)/2;
+	    mat4.perspective(mvMatrix, 1, gl.viewportWidth/gl.viewportHeight, 0.1, 100.0);
+	    mat4.translate(mvMatrix, mvMatrix, [0.0, 0.0, -1.82]);   	    
+	    mat4.rotateX(mvMatrix, mvMatrix, -1*rotateProgressNL);   
+	    mat4.rotateZ(mvMatrix, mvMatrix, 3.14/4*rotateProgressNL);
+	}
 	
         gl.useProgram(renderShaderProgram);
 	gl.enableVertexAttribArray(renderShaderProgram.vertexAttribute);
@@ -489,15 +503,22 @@
         gl.enable(gl.DEPTH_TEST);
         
         canvas.addEventListener('mousedown', function(event) {
-	    var x = event.pageX - canvas.offsetLeft,
-		y = event.pageY - canvas.offsetTop;	
-// 	    x = (x / 2.0 + 0.5) * WaterBufferSize;
-	    x = (x / canvas.clientWidth - 0.5) * 2;
-	    y = -(y / canvas.clientWidth - 0.5) * 2;
-	    drop = [x,y];
-	    newDrops.push(drop);
-//             alert("Clicked " + x + " " + y);
+	    switch (event.which) {
+	    case 1:
+		var x = event.pageX - canvas.offsetLeft,
+		    y = event.pageY - canvas.offsetTop;	
+    // 	    x = (x / 2.0 + 0.5) * WaterBufferSize;
+		x = (x / canvas.clientWidth - 0.5) * 2;
+		y = -(y / canvas.clientWidth - 0.5) * 2;
+		drop = [x,y];
+		newDrops.push(drop);
+    //             alert("Clicked " + x + " " + y);	    
+            break;            
+	    case 3:
+		rotateAnim=true;
+	    }
         });
+        
         
         for (var i = 0; i < 20; i++)
         {
@@ -518,7 +539,7 @@
 
 
 <body onload="webGLStart();">
-    <canvas id="water-canvas" style="border: none;" width="512" height="512"></canvas>
+    <canvas id="water-canvas" style="border: none;" width="*" height="512"></canvas>
     
 </body>
 
