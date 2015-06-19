@@ -6,6 +6,7 @@
 
 <script type="text/javascript" src="gl-matrix.js"></script>
 <script type="text/javascript" src="Stats.js"></script>
+<script type="text/javascript" src="html2canvas.js"></script>
 
 <script id="drop-fs" type="x-shader/x-fragment">
     varying mediump vec2 pos;
@@ -252,6 +253,7 @@
     var waterVelTX;
     var waterVelFramebuffer;
     var WaterBufferSize=512;
+    var cvTX;
     
     
     function initFrameBuffers() {
@@ -357,6 +359,7 @@
         if (newDrops.length)
         {        
 	    console.log("Preparing to add new drops");
+	    gl.disable(gl.BLEND);
 	    gl.bindFramebuffer(gl.FRAMEBUFFER, waterHeightFramebuffer);
 	    gl.viewport(0, 0, WaterBufferSize, WaterBufferSize);
 	    gl.useProgram(dropShaderProgram);
@@ -418,12 +421,11 @@
 	gl.blendFunc(gl.CONSTANT_COLOR,gl.CONSTANT_COLOR);
 	gl.drawArrays(gl.TRIANGLES, 0, VertexPositionBuffer.numItems);
         
-    
         //Render to screen
 	gl.bindFramebuffer(gl.FRAMEBUFFER, null);    
         gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
         gl.clearColor(0.0, 0.0, 0.0, 0.0);
-        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+        gl.clear(gl.COLOR_BUFFER_BIT);
         
 	gl.bindTexture(gl.TEXTURE_2D, waterHeightTX);
     
@@ -435,15 +437,16 @@
 	    if (rotateProgress>=1)
 	      rotateAnim=false;
 	}
-	if (rotateProgress==0)
-	  mat4.identity(mvMatrix); 
-	else
+	
+	mat4.perspective(mvMatrix, 1, gl.viewportWidth/gl.viewportHeight, 0.1, 100.0);	    
+	mat4.translate(mvMatrix, mvMatrix, [0.0, 0.0, -1.82]);   	    
+	if (rotateProgress>0)
 	{
 	    var rotateProgressNL = (Math.sin((rotateProgress+1.5)*Math.PI)+1)/2;
-	    mat4.perspective(mvMatrix, 1, gl.viewportWidth/gl.viewportHeight, 0.1, 100.0);
-	    mat4.translate(mvMatrix, mvMatrix, [0.0, 0.0, -1.82]);   	    
+	    mat4.translate(mvMatrix, mvMatrix, [0,0, -1*rotateProgressNL]);  
 	    mat4.rotateX(mvMatrix, mvMatrix, -1*rotateProgressNL);   
-	    mat4.rotateZ(mvMatrix, mvMatrix, 3.14/4*rotateProgressNL);
+	    mat4.rotateZ(mvMatrix, mvMatrix, 3.14/4*rotateProgressNL);	    
+// 	    mat4.translate(mvMatrix, mvMatrix, [0,0, .5*rotateProgressNL]);   	
 	}
 	
         gl.useProgram(renderShaderProgram);
@@ -458,6 +461,12 @@
 	gl.uniform2f(renderShaderProgram.windowSizeUniform, WaterBufferSize, WaterBufferSize);
 	gl.disable(gl.BLEND);
 	gl.drawArrays(gl.TRIANGLES, 0, VertexPositionBuffer.numItems);
+	
+// 	gl.useProgram(integrateShaderProgram);
+// 	gl.bindTexture(gl.TEXTURE_2D, cvTX);
+// 	gl.enable(gl.BLEND);
+// 	gl.blendFunc (gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+// 	gl.drawArrays(gl.TRIANGLES, 0, VertexPositionBuffer.numItems);
 
 //         gl.enableVertexAttribArray(dropShaderProgram.vertexAttribute);
 //         mat4.translate(mvMatrix, [-1.5, 0.0, -7.0]);
@@ -476,8 +485,7 @@
     var stats;
     
     function renderLoop()
-    {    
-    
+    {        
 	stats.begin();
 	drawScene();
 	stats.end();
@@ -485,21 +493,67 @@
 	requestAnimationFrame( renderLoop );
     }
 
+    
+//     function test(canvas1)
+//     {    
+// 
+// 	console.log("test");
+//     }
+    
     function webGLStart() {
 	stats = new Stats();	
 	stats.setMode( 0 ); // 0: fps, 1: ms, 2: mb
 	// align top-left
 	stats.domElement.style.position = 'absolute';
 	stats.domElement.style.left = '8px';
-	stats.domElement.style.top = '530px';
+	stats.domElement.style.top = '528px';
 	document.body.appendChild( stats.domElement );
 	
         var canvas = document.getElementById("water-canvas");
+//         canvas.width = document.body.clientWidth; //document.width is obsolete
+// 	canvas.height = document.body.clientHeight; //document.height is obsolete
+// 	canvas.width = window.innerWidth-20;
+// 	canvas.height = window.innerHeight-20;
+	
+	canvas.style.position = 'absolute';
+	canvas.style.left = '8px';
+	canvas.style.top = '8px';
+	canvas.style.zIndex = '-1';
+    
+    
+        var mainbody = document.getElementById("mainbody");
+        
+	mainbody.style.position = 'absolute';
+	mainbody.style.left = '8px';
+	mainbody.style.top = '8px';
+        
+	
+
+	
+    
         initGL(canvas);
         initShaders();
         initFrameBuffers();
         initBuffers();
 
+// 	html2canvas(mainbody, {
+// 	  onrendered: function(canvas1) {
+// // 	      document.body.appendChild(canvas1);
+// // 	      canvas1.style.position = 'absolute';
+// // 	      canvas1.style.left = '18px';
+// // 	      canvas1.style.top = '600px';
+// 	      
+// 	      cvTX = gl.createTexture();
+// 	      gl.bindTexture(gl.TEXTURE_2D, cvTX);	
+// 	      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, canvas1);
+// 	      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+// 	      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+// 	  },
+// 	  width: 512,
+// 	  height: 512	  
+// 	});
+	
+	mainbody.style.display = 'none';
         gl.enable(gl.DEPTH_TEST);
         
         canvas.addEventListener('mousedown', function(event) {
@@ -530,17 +584,40 @@
 
 	requestAnimationFrame( renderLoop );
 //         renderLoop();
-    }
-   
+    }	   
 </script>
-
-
 </head>
-
-
 <body onload="webGLStart();">
-    <canvas id="water-canvas" style="border: none;" width="*" height="512"></canvas>
-    
-</body>
+    <div id="mainbody">
+	<h1>Matthew Wellings</h1>
+	<p id ="subtitle">Software Developer</p>
+	<p>
+	Specialising in:<br>
+	Qt (For Desktop, Embedded and Server)<br> 
+	Android (Java and NDK C++)<br>
+	OpenGL (Modern Desktop + ES)<br>
+	LAMP software
+	</p>
 
+	<h2>Contact</h2>
+	<p>
+	I can be contacted:<br>
+	by email <a href="mailto:website@matthewwellings.com">website@matthewwellings.com</a><br>
+	on <a href="https://Google.com/+MatthewWellings">GooglePlus</a><br>
+	on <a href="https://www.facebook.com/matt.wellings.90">Facebook</a><br>
+	on <a href="tel:+441212888633">+44(0)1212888633</a><br>
+	on <a href="skype:openforeveryone">Skype</a>
+
+	<h2>Public Projects</h2>
+	<h3>OSS</h3>
+	<p>
+	<a href="http://wordsearchcreator.org/">Word Search Creator</a><br>
+	Other OSS code on <a href="https://github.com/openforeveryone/">my Github page</a>.<br>
+	</p>
+
+	<h2>CV</h2>
+	For my full CV please contact me.
+    </div>
+    <canvas id="water-canvas" style="border: none;" width="512" height="512"></canvas>    
+</body>
 </html>
