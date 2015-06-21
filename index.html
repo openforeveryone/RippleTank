@@ -56,7 +56,7 @@
 		  + texture2D(waterLevelTex, vec2(currentpos.x, currentpos.y+windowSizeR.y)))/4.0;
 
 	  mediump vec4 leveldiff=averageNeighbourLevel-texture2D(waterLevelTex, currentpos);
-	  mediump vec4 k=vec4(1,1,1,1);
+	  mediump vec4 k=vec4(1,1,0,1);
 	  mediump vec4 force = leveldiff*k; //Hooke's law
       //    gl_FragColor=vec4(0,1,0,1);
 	  gl_FragColor = force;   //Integrating on Newton2 dobe by blending.
@@ -104,9 +104,11 @@
       varying mediump vec2 v_texcoord;
       uniform mediump vec2 windowSize;
       void main() {
-// 	  highp vec4 colour = texture2D(s_texture, v_texcoord);
+	  highp vec4 colour = texture2D(s_texture, v_texcoord);
 	  //In WebGL transparency is not ignored, so discard it now:
+// 	  gl_FragColor = vec4(colour.r,0,colour.b,1);
 // 	  gl_FragColor = vec4(0, 0,(colour.r*0.8+0.25)+(colour.g*0.2+0.25),  1.0);
+
 	  
 	  mediump vec2 currentpos = v_texcoord; //Componant-wise division.
 	  mediump vec2 windowSizeR = vec2(1.0/windowSize.x, 1.0/windowSize.y);
@@ -127,7 +129,9 @@
 	  mediump vec3 halfVectorWS = normalize(vec3(-1,1,2));
 	  mediump float cosLightAngle = max(dot(normalWS, toLightWS), 0.0);
 	  mediump float cosSpecAngle = max(dot(normalWS, halfVectorWS), 0.0);      
-          gl_FragColor = color /** 0.2 */+ cosLightAngle * 0.4 + pow(cosSpecAngle, specularity);
+	  mediump vec4 surfacecolour = color + cosLightAngle * 0.4 + pow(cosSpecAngle, specularity);
+	  surfacecolour.r = max(surfacecolour.r, colour.b);
+          gl_FragColor = surfacecolour;
       }
 </script>
 
@@ -140,6 +144,21 @@
 	v_texcoord=texcoordAttr;
 	gl_Position = matrix * posAttr;
     }
+</script>
+
+<script id="wall-fs" type="x-shader/x-fragment">
+      void main(void)
+      {
+	  gl_FragColor = vec4(0,0,1,0);
+      }
+</script>
+
+<script id="wall-vs" type="x-shader/x-vertex">
+      attribute highp vec4 vertex;   
+      void main(void)
+      {	  
+	  gl_Position = vertex;
+      }
 </script>
 
 <script type="text/javascript">
@@ -209,6 +228,7 @@
     var forcecalcShaderProgram;
     var integrateShaderProgram;
     var renderShaderProgram;
+    var wallShaderProgram
 
     function initShaders() {
         var dropFragmentShader = getShader(gl, "drop-fs");
@@ -219,11 +239,14 @@
         var integrateVertexShader = getShader(gl, "integrate-vs");
         var renderFragmentShader = getShader(gl, "render-fs");
         var renderVertexShader = getShader(gl, "render-vs");
+        var wallFragmentShader = getShader(gl, "wall-fs");
+        var wallVertexShader = getShader(gl, "wall-vs");
 
 	dropShaderProgram = getShaderProgram(gl, dropFragmentShader, dropVertexShader);
 	forcecalcShaderProgram = getShaderProgram(gl, forcecalcFragmentShader, forcecalcVertexShader);
 	integrateShaderProgram = getShaderProgram(gl, integrateFragmentShader, integrateVertexShader);
 	renderShaderProgram = getShaderProgram(gl, renderFragmentShader, renderVertexShader);
+	wallShaderProgram = getShaderProgram(gl, wallFragmentShader, wallVertexShader);
 
         gl.useProgram(dropShaderProgram);
         dropShaderProgram.vertexAttribute = gl.getAttribLocation(dropShaderProgram, "vertex");
@@ -245,7 +268,10 @@
         renderShaderProgram.vertexAttribute = gl.getAttribLocation(renderShaderProgram, "posAttr");
         renderShaderProgram.texcoordAttribute = gl.getAttribLocation(renderShaderProgram, "texcoordAttr");
         renderShaderProgram.matrixUniform = gl.getUniformLocation(renderShaderProgram, "matrix");     
-        renderShaderProgram.windowSizeUniform = gl.getUniformLocation(renderShaderProgram, "windowSize");   
+        renderShaderProgram.windowSizeUniform = gl.getUniformLocation(renderShaderProgram, "windowSize");  
+        
+        gl.useProgram(wallShaderProgram); 
+        wallShaderProgram.vertexAttribute = gl.getAttribLocation(wallShaderProgram, "vertex");
     }
     
     var waterHeightTX;
@@ -296,9 +322,10 @@
 	gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     }
     
-    
     var VertexPositionBuffer;
     var TexCoordPositionBuffer;
+    var WallPositionBuffer;
+    var BarPositionBuffer;
     var DropPositionBuffer;
     
     function initBuffers() {    
@@ -332,6 +359,59 @@
       TexCoordPositionBuffer.itemSize = 2;
       TexCoordPositionBuffer.numItems = 6;
       
+      
+      WallPositionBuffer = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, WallPositionBuffer);
+//       var wallvertices = [
+// 	  -1, 1,
+// 	  -1, -1,
+// 	  -1, -1,
+// 	  1, -1,
+// 	  1, -1,
+// 	  1, 1,
+// 	  1, 1,
+// 	  -1, 1,
+//       ];
+      
+      var a = 1 - 1/256;
+      var wallvertices = [
+	  -a, a,
+	  -a, -a,
+	  -a, -a,
+	  a, -a,
+	  a, -a,
+	  a, a,
+	  a, a,
+	  -a, a,
+      ];
+      
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(wallvertices), gl.STATIC_DRAW);
+      WallPositionBuffer.itemSize = 2;
+      WallPositionBuffer.numItems = 8;      
+      
+      BarPositionBuffer = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, BarPositionBuffer);
+      var barvertices = [
+	  -.025, 1,
+	  -.025, .05,
+	  .025, .05,
+
+	  .025, 1,
+	  .025, .05,
+	  -.025, 1,
+	  
+	  -.025, -1,
+	  -.025, -0.05,
+	  .025, -.05,
+
+	  .025, -1,
+	  .025, -0.05,
+	  -.025, -1
+      ];
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(barvertices), gl.STATIC_DRAW);
+      BarPositionBuffer.itemSize = 2;
+      BarPositionBuffer.numItems = 12;
+      
       DropPositionBuffer = gl.createBuffer();
     }
 
@@ -359,7 +439,6 @@
         if (newDrops.length)
         {        
 	    console.log("Preparing to add new drops");
-	    gl.disable(gl.BLEND);
 	    gl.bindFramebuffer(gl.FRAMEBUFFER, waterHeightFramebuffer);
 	    gl.viewport(0, 0, WaterBufferSize, WaterBufferSize);
 	    gl.useProgram(dropShaderProgram);
@@ -420,9 +499,23 @@
 	gl.blendEquation(gl.FUNC_ADD);
 	gl.blendFunc(gl.CONSTANT_COLOR,gl.CONSTANT_COLOR);
 	gl.drawArrays(gl.TRIANGLES, 0, VertexPositionBuffer.numItems);
+	
+	//Reset areas that are walls:
+	gl.bindTexture(gl.TEXTURE_2D, null);
+	gl.disable(gl.BLEND);	
+        gl.useProgram(wallShaderProgram);
+	gl.enableVertexAttribArray(wallShaderProgram.vertexAttribute);	
+        gl.bindBuffer(gl.ARRAY_BUFFER, WallPositionBuffer);
+        gl.vertexAttribPointer(WallPositionBuffer.vertexAttribute, WallPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
+	gl.drawArrays(gl.LINES, 0, WallPositionBuffer.numItems);
+        gl.bindBuffer(gl.ARRAY_BUFFER, BarPositionBuffer);
+        gl.vertexAttribPointer(BarPositionBuffer.vertexAttribute, BarPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
+	gl.drawArrays(gl.TRIANGLES, 0, BarPositionBuffer.numItems);
+	
         
         //Render to screen
-	gl.bindFramebuffer(gl.FRAMEBUFFER, null);    
+	gl.bindFramebuffer(gl.FRAMEBUFFER, null);   
+	gl.bindTexture(gl.TEXTURE_2D, waterVelTX); 
         gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
         gl.clearColor(0.0, 0.0, 0.0, 0.0);
         gl.clear(gl.COLOR_BUFFER_BIT);
@@ -518,14 +611,14 @@
 	canvas.style.position = 'absolute';
 	canvas.style.left = '8px';
 	canvas.style.top = '8px';
-	canvas.style.zIndex = '-1';
+// 	canvas.style.zIndex = '-1';
     
     
-        var mainbody = document.getElementById("mainbody");
-        
-	mainbody.style.position = 'absolute';
-	mainbody.style.left = '8px';
-	mainbody.style.top = '8px';
+//         var mainbody = document.getElementById("mainbody");
+//         
+// 	mainbody.style.position = 'absolute';
+// 	mainbody.style.left = '8px';
+// 	mainbody.style.top = '8px';
         
 	
 
@@ -553,10 +646,12 @@
 // 	  height: 512	  
 // 	});
 	
-	mainbody.style.display = 'none';
+// 	mainbody.style.display = 'none';
+// 	mainbody.remove();
         gl.enable(gl.DEPTH_TEST);
         
-        canvas.addEventListener('mousedown', function(event) {
+        canvas.addEventListener('mousedown', function(event) {        
+// 	    alert("Clicked " + x + " " + y);	
 	    switch (event.which) {
 	    case 1:
 		var x = event.pageX - canvas.offsetLeft,
@@ -565,8 +660,7 @@
 		x = (x / canvas.clientWidth - 0.5) * 2;
 		y = -(y / canvas.clientWidth - 0.5) * 2;
 		drop = [x,y];
-		newDrops.push(drop);
-    //             alert("Clicked " + x + " " + y);	    
+		newDrops.push(drop);    
             break;            
 	    case 3:
 		rotateAnim=true;
@@ -588,7 +682,7 @@
 </script>
 </head>
 <body onload="webGLStart();">
-    <div id="mainbody">
+    <!--<div id="mainbody">
 	<h1>Matthew Wellings</h1>
 	<p id ="subtitle">Software Developer</p>
 	<p>
@@ -617,7 +711,7 @@
 
 	<h2>CV</h2>
 	For my full CV please contact me.
-    </div>
+    </div>-->
     <canvas id="water-canvas" style="border: none;" width="512" height="512"></canvas>    
 </body>
 </html>
