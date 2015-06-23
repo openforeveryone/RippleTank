@@ -6,7 +6,7 @@
 
 <script type="text/javascript" src="gl-matrix.js"></script>
 <script type="text/javascript" src="Stats.js"></script>
-<script type="text/javascript" src="html2canvas.js"></script>
+<!--<script type="text/javascript" src="html2canvas.js"></script>-->
 
 <script id="drop-fs" type="x-shader/x-fragment">
     varying mediump vec2 pos;
@@ -42,8 +42,8 @@
 <script id="forcecalc-fs" type="x-shader/x-fragment">
     uniform sampler2D waterLevelTex;
     uniform mediump vec2 windowSize;
-    uniform mediump float time;
-    varying mediump vec2 pos;
+//     uniform mediump float time;
+//     varying mediump vec2 pos;
     varying mediump vec2 v_texcord;
     void main(void)
     {
@@ -65,16 +65,16 @@
 </script>
 
 <script id="forcecalc-vs" type="x-shader/x-vertex">
-      attribute highp vec4 vertex;
+      attribute highp vec2 vertex;
       attribute highp vec2 texcord;
-      varying mediump vec2 pos;
+//       varying mediump vec2 pos;
       varying mediump vec2 v_texcord;
 
       void main(void)
       {
-	  pos = vertex.xy;
+// 	  pos = vertex.xy;
 	  v_texcord = texcord;
-	  gl_Position = vertex;
+	  gl_Position = vec4(vertex,0,1);
       }
 </script>
 
@@ -131,18 +131,21 @@
 	  mediump float cosSpecAngle = max(dot(normalWS, halfVectorWS), 0.0);      
 	  mediump vec4 surfacecolour = color + cosLightAngle * 0.4 + pow(cosSpecAngle, specularity);
 	  surfacecolour.r = max(surfacecolour.r, colour.b);
+// 	  if (colour.b>.1) discard;
           gl_FragColor = surfacecolour;
       }
 </script>
 
 <script id="render-vs" type="x-shader/x-vertex">
-    attribute highp vec4 posAttr;
+    uniform sampler2D s_texture;
+    attribute highp vec2 posAttr;
     attribute highp vec2 texcoordAttr;
     varying lowp vec2 v_texcoord;
     uniform highp mat4 matrix;
     void main() {
 	v_texcoord=texcoordAttr;
-	gl_Position = matrix * posAttr;
+	highp vec4 height = texture2D(s_texture, v_texcoord);
+	gl_Position = matrix * vec4(posAttr.xy, height.x*.2, 1);
     }
 </script>
 
@@ -163,16 +166,33 @@
 
 <script type="text/javascript">
 
+    function checkError() {
+	var glerror = gl.getError()
+	if (glerror!=gl.NO_ERROR)
+	{
+// 	    console.error("GL Error " + WebGLDebugUtils.glEnumToString(glerror));
+	    if (glerror==gl.INVALID_ENUM)
+	      glerror="GL_INVALID_ENUM";
+	    else if (glerror==gl.INVALID_OPERATION)
+	      glerror="GL_INVALID_OPERATION";
+	    console.error("GL Error " + glerror);
+	}
+    }
+    
     var gl;
     function initGL(canvas) {
         try {
+// 	    gl = WebGLDebugUtils.makeDebugContext(canvas.getContext("experimental-webgl"));
             gl = canvas.getContext("experimental-webgl");
             gl.viewportWidth = canvas.width;
             gl.viewportHeight = canvas.height;
         } catch (e) {
         }
-        if (!gl) {
-            console.log("Could not initialise WebGL.");
+        if (gl) {
+            return true;
+	}else{
+	    alert("This page requires WebGL but it cannot be accessed, try upgrading your browser or graphics drivers.");
+            return false;
         }
     }
 
@@ -285,9 +305,11 @@
     function initFrameBuffers() {
 	var ext = gl.getExtension('OES_texture_float');
 	if (!ext) {
-	  alert("May not work without OES_texture_float");
+	  alert("This page requires the 'OES_texture_float' extension, try upgrading your browser or graphics drivers.");
+	  return false;
 	}
 	
+	checkError();
 	waterHeightTX = gl.createTexture();
 	gl.bindTexture(gl.TEXTURE_2D, waterHeightTX);	
 	//Need a replacement for this
@@ -305,7 +327,9 @@
 	gl.viewport(0, 0, WaterBufferSize, WaterBufferSize);    
 	gl.clearColor(0.0, 0.0, 0.0, 1.0);        
         gl.clear(gl.COLOR_BUFFER_BIT);
-// 	gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+	if (gl.checkFramebufferStatus(gl.FRAMEBUFFER)!=gl.FRAMEBUFFER_COMPLETE)
+	  console.error("Framebuffer Error");
+	gl.bindFramebuffer(gl.FRAMEBUFFER, null);
 
 	waterVelTX = gl.createTexture();
 	gl.bindTexture(gl.TEXTURE_2D, waterVelTX);	
@@ -319,11 +343,53 @@
 	gl.viewport(0, 0, WaterBufferSize, WaterBufferSize);    
 	gl.clearColor(0.0, 0.0, 0.0, 1.0);        
         gl.clear(gl.COLOR_BUFFER_BIT);
+	if (gl.checkFramebufferStatus(gl.FRAMEBUFFER)!=gl.FRAMEBUFFER_COMPLETE)
+	  console.error("Framebuffer Error");
 	gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+	if (gl.checkFramebufferStatus(gl.FRAMEBUFFER)!=gl.FRAMEBUFFER_COMPLETE)
+	  console.error("Framebuffer Error");
+	checkError();
+	return true;
+    }
+    
+    var meshVertices = [];
+    var meshTexCoords = [];
+    var meshIndices = [];
+    
+    function buildMesh()
+    {        
+	var meshSize = 128;
+	for (var i=0; i<meshSize; i++)
+	{	
+	    for (var j=0; j<meshSize; j++)
+	    {
+		meshVertices.push(i/meshSize*2-1);
+		meshVertices.push(j/meshSize*2-1);
+		meshTexCoords.push(i/meshSize*0.96+0.02);//Do not show the edges wich do not move
+		meshTexCoords.push(j/meshSize*0.96+0.02);
+	    }
+	}
+	for (var i=0; i<meshSize-1; i++)
+	{	
+	    for (var j=0; j<meshSize-1; j++)
+	    {
+		meshIndices.push(j+i*meshSize);
+		meshIndices.push(j+1+i*meshSize);
+		meshIndices.push(j+(i+1)*meshSize);
+		
+		meshIndices.push(j+1+i*meshSize);
+		meshIndices.push(j+(i+1)*meshSize);
+		meshIndices.push(j+1+(i+1)*meshSize);
+		
+	    }
+	}
     }
     
     var VertexPositionBuffer;
     var TexCoordPositionBuffer;
+    var VertexPositionBufferR;
+    var TexCoordPositionBufferR;
+    var IndexBufferR;
     var WallPositionBuffer;
     var BarPositionBuffer;
     var DropPositionBuffer;
@@ -359,6 +425,22 @@
       TexCoordPositionBuffer.itemSize = 2;
       TexCoordPositionBuffer.numItems = 6;
       
+      buildMesh();
+      VertexPositionBufferR = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, VertexPositionBufferR);
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(meshVertices), gl.STATIC_DRAW);
+      VertexPositionBufferR.itemSize = 2;
+      VertexPositionBufferR.numItems = meshVertices.length/VertexPositionBufferR.itemSize;
+      TexCoordPositionBufferR = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, TexCoordPositionBufferR);
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(meshTexCoords), gl.STATIC_DRAW);
+      TexCoordPositionBufferR.itemSize = 2;
+      TexCoordPositionBufferR.numItems = meshTexCoords.length/TexCoordPositionBufferR.itemSize;
+      IndexBufferR = gl.createBuffer();
+      gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, IndexBufferR);
+      gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(meshIndices), gl.STATIC_DRAW);
+      IndexBufferR.numItems = meshIndices.length;
+      gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
       
       WallPositionBuffer = gl.createBuffer();
       gl.bindBuffer(gl.ARRAY_BUFFER, WallPositionBuffer);
@@ -410,11 +492,12 @@
       ];
       gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(barvertices), gl.STATIC_DRAW);
       BarPositionBuffer.itemSize = 2;
-      BarPositionBuffer.numItems = 12;
+      BarPositionBuffer.numItems = 12;      
       
       DropPositionBuffer = gl.createBuffer();
-    }
 
+    }
+    
     var mvMatrix;
     var frameNumber=0;
     var newDrops = [];
@@ -438,6 +521,7 @@
 	//Add the drops that are in the queue to the framebuffer:
         if (newDrops.length)
         {        
+	    checkError();
 	    console.log("Preparing to add new drops");
 	    gl.bindFramebuffer(gl.FRAMEBUFFER, waterHeightFramebuffer);
 	    gl.viewport(0, 0, WaterBufferSize, WaterBufferSize);
@@ -457,11 +541,14 @@
 		  posArray[drop*2+1]=newDrops[drop][1];
 	    }	    
 	    console.log(posArray.toString());
+	    checkError();
 	    gl.enableVertexAttribArray(dropShaderProgram.vertexAttribute);
 	    gl.bindBuffer(gl.ARRAY_BUFFER, DropPositionBuffer);
 	    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(posArray), gl.DYNAMIC_DRAW);	    
 	    gl.vertexAttribPointer(dropShaderProgram.vertexAttribute, 2, gl.FLOAT, false, 0, 0);
+	    checkError();
 	    gl.drawArrays(gl.POINTS, 0, newDrops.length);
+	    checkError();
 	    newDrops = [];
         }
         
@@ -469,6 +556,8 @@
 	gl.activeTexture(gl.TEXTURE0);
 	gl.bindTexture(gl.TEXTURE_2D, waterHeightTX);
 	gl.bindFramebuffer(gl.FRAMEBUFFER, waterVelFramebuffer);  
+	if (gl.checkFramebufferStatus(gl.FRAMEBUFFER)!=gl.FRAMEBUFFER_COMPLETE)
+	    console.error("Framebuffer Error");
         gl.viewport(0, 0, WaterBufferSize, WaterBufferSize);
 //         gl.clearColor(1.0, 1.0, 0.0, 1.0);
 //         gl.clear(gl.COLOR_BUFFER_BIT); 
@@ -476,7 +565,7 @@
         gl.enableVertexAttribArray(forcecalcShaderProgram.vertexAttribute);
         gl.enableVertexAttribArray(forcecalcShaderProgram.texcoordAttribute);
         gl.bindBuffer(gl.ARRAY_BUFFER, VertexPositionBuffer);
-        gl.vertexAttribPointer(forcecalcShaderProgram.vertexPositionAttribute, VertexPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
+        gl.vertexAttribPointer(forcecalcShaderProgram.vertexAttribute, VertexPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
         gl.bindBuffer(gl.ARRAY_BUFFER, TexCoordPositionBuffer);
         gl.vertexAttribPointer(forcecalcShaderProgram.texcoordAttribute, TexCoordPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
 	gl.uniform2f(forcecalcShaderProgram.windowSizeUniform, WaterBufferSize, WaterBufferSize);
@@ -484,6 +573,7 @@
 	gl.blendEquation(gl.FUNC_ADD);
 	gl.blendFunc(gl.ONE,gl.ONE);
 	gl.drawArrays(gl.TRIANGLES, 0, VertexPositionBuffer.numItems);
+	checkError();
 	
 	//Integrate water velocity:	
 	gl.bindTexture(gl.TEXTURE_2D, waterVelTX);
@@ -531,7 +621,7 @@
 	      rotateAnim=false;
 	}
 	
-	mat4.perspective(mvMatrix, 1, gl.viewportWidth/gl.viewportHeight, 0.1, 100.0);	    
+	mat4.perspective(mvMatrix, 1, gl.viewportWidth/gl.viewportHeight, 0.1, 5.0);	    
 	mat4.translate(mvMatrix, mvMatrix, [0.0, 0.0, -1.82]);   	    
 	if (rotateProgress>0)
 	{
@@ -543,17 +633,21 @@
 	}
 	
         gl.useProgram(renderShaderProgram);
+        gl.disableVertexAttribArray(2);
+        gl.disableVertexAttribArray(3);
 	gl.enableVertexAttribArray(renderShaderProgram.vertexAttribute);
 	gl.enableVertexAttribArray(renderShaderProgram.texcoordAttribute);
 	
-        gl.bindBuffer(gl.ARRAY_BUFFER, VertexPositionBuffer);
-        gl.vertexAttribPointer(renderShaderProgram.vertexPositionAttribute, VertexPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
-        gl.bindBuffer(gl.ARRAY_BUFFER, TexCoordPositionBuffer);
-        gl.vertexAttribPointer(renderShaderProgram.texcoordAttribute, TexCoordPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
+        gl.bindBuffer(gl.ARRAY_BUFFER, VertexPositionBufferR);
+        gl.vertexAttribPointer(renderShaderProgram.vertexAttribute, VertexPositionBufferR.itemSize, gl.FLOAT, false, 0, 0);
+        gl.bindBuffer(gl.ARRAY_BUFFER, TexCoordPositionBufferR);
+        gl.vertexAttribPointer(renderShaderProgram.texcoordAttribute, TexCoordPositionBufferR.itemSize, gl.FLOAT, false, 0, 0);
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, IndexBufferR);
         gl.uniformMatrix4fv(renderShaderProgram.matrixUniform, false, mvMatrix);
 	gl.uniform2f(renderShaderProgram.windowSizeUniform, WaterBufferSize, WaterBufferSize);
 	gl.disable(gl.BLEND);
-	gl.drawArrays(gl.TRIANGLES, 0, VertexPositionBuffer.numItems);
+	gl.drawElements(gl.TRIANGLES, IndexBufferR.numItems, gl.UNSIGNED_SHORT, 0);
+	gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
 	
 // 	gl.useProgram(integrateShaderProgram);
 // 	gl.bindTexture(gl.TEXTURE_2D, cvTX);
@@ -582,7 +676,6 @@
 	stats.begin();
 	drawScene();
 	stats.end();
-// 	window.setTimeout(renderLoop, 1000 / 60);
 	requestAnimationFrame( renderLoop );
     }
 
@@ -613,7 +706,11 @@
 	canvas.style.top = '8px';
 // 	canvas.style.zIndex = '-1';
     
-    
+        var rotateButton = document.getElementById("rotate");
+	rotateButton.style.position = 'absolute';
+	rotateButton.style.left = '100px';
+	rotateButton.style.top = '528px';
+	
 //         var mainbody = document.getElementById("mainbody");
 //         
 // 	mainbody.style.position = 'absolute';
@@ -659,7 +756,24 @@
     // 	    x = (x / 2.0 + 0.5) * WaterBufferSize;
 		x = (x / canvas.clientWidth - 0.5) * 2;
 		y = -(y / canvas.clientWidth - 0.5) * 2;
+		
 		drop = [x,y];
+		var invmat = mat4.create();
+		mat4.invert(invmat, mvMatrix);
+		var depth=1;
+		var z=-.9;
+		while (depth>.0)
+		{
+		    z=z+.0005;
+		    var point = vec4.fromValues(x,y,z,1);
+// 		    console.log("point " + point[0] + " " + point[1]+ " " + point[2]+ " " + point[3]);
+		    vec4.transformMat4(point, point, invmat);
+    // 		console.log("point " + point[0] + " " + point[1]+ " " + point[2]+ " " + point[3]);
+// 		    console.log("point " + point[0]/point[3] + " " + point[1]/point[3]+ " " + point[2]/point[3]);
+		    depth=point[2]/point[3];
+		}
+		
+		drop = [point[0]/point[3],point[1]/point[3]];
 		newDrops.push(drop);    
             break;            
 	    case 3:
@@ -677,7 +791,6 @@
         }
 
 	requestAnimationFrame( renderLoop );
-//         renderLoop();
     }	   
 </script>
 </head>
@@ -713,5 +826,6 @@
 	For my full CV please contact me.
     </div>-->
     <canvas id="water-canvas" style="border: none;" width="512" height="512"></canvas>    
+    <button id = "rotate" type="button" onclick="rotateAnim=true;">Rotate</button> 
 </body>
 </html>
