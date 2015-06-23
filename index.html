@@ -504,6 +504,7 @@
     var DropSize = 40;
     var rotateAnim = false;
     var rotateProgress = 0;
+    var running = true;
 
     function drawScene() {
 // 
@@ -552,43 +553,46 @@
 	    newDrops = [];
         }
         
-	//Calc water velocity:	
-	gl.activeTexture(gl.TEXTURE0);
-	gl.bindTexture(gl.TEXTURE_2D, waterHeightTX);
-	gl.bindFramebuffer(gl.FRAMEBUFFER, waterVelFramebuffer);  
-	if (gl.checkFramebufferStatus(gl.FRAMEBUFFER)!=gl.FRAMEBUFFER_COMPLETE)
-	    console.error("Framebuffer Error");
-        gl.viewport(0, 0, WaterBufferSize, WaterBufferSize);
-//         gl.clearColor(1.0, 1.0, 0.0, 1.0);
-//         gl.clear(gl.COLOR_BUFFER_BIT); 
-        gl.useProgram(forcecalcShaderProgram);
-        gl.enableVertexAttribArray(forcecalcShaderProgram.vertexAttribute);
-        gl.enableVertexAttribArray(forcecalcShaderProgram.texcoordAttribute);
-        gl.bindBuffer(gl.ARRAY_BUFFER, VertexPositionBuffer);
-        gl.vertexAttribPointer(forcecalcShaderProgram.vertexAttribute, VertexPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
-        gl.bindBuffer(gl.ARRAY_BUFFER, TexCoordPositionBuffer);
-        gl.vertexAttribPointer(forcecalcShaderProgram.texcoordAttribute, TexCoordPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
-	gl.uniform2f(forcecalcShaderProgram.windowSizeUniform, WaterBufferSize, WaterBufferSize);
-	gl.enable(gl.BLEND);
-	gl.blendEquation(gl.FUNC_ADD);
-	gl.blendFunc(gl.ONE,gl.ONE);
-	gl.drawArrays(gl.TRIANGLES, 0, VertexPositionBuffer.numItems);
-	checkError();
-	
-	//Integrate water velocity:	
-	gl.bindTexture(gl.TEXTURE_2D, waterVelTX);
-	gl.bindFramebuffer(gl.FRAMEBUFFER, waterHeightFramebuffer); 
-        gl.viewport(0, 0, WaterBufferSize, WaterBufferSize); 
-//         gl.clearColor(1.0, 0.0, 0.0, 1.0);
-//         gl.clear(gl.COLOR_BUFFER_BIT); 
-        gl.useProgram(integrateShaderProgram);
-        gl.enableVertexAttribArray(integrateShaderProgram.vertexAttribute);
-        gl.enableVertexAttribArray(integrateShaderProgram.texcoordAttribute);
-	gl.enable(gl.BLEND);
-	gl.blendColor(0.995,1,1,1);
-	gl.blendEquation(gl.FUNC_ADD);
-	gl.blendFunc(gl.CONSTANT_COLOR,gl.CONSTANT_COLOR);
-	gl.drawArrays(gl.TRIANGLES, 0, VertexPositionBuffer.numItems);
+        if (running)
+        {
+	    //Calc water velocity:	
+	    gl.activeTexture(gl.TEXTURE0);
+	    gl.bindTexture(gl.TEXTURE_2D, waterHeightTX);
+	    gl.bindFramebuffer(gl.FRAMEBUFFER, waterVelFramebuffer);  
+	    if (gl.checkFramebufferStatus(gl.FRAMEBUFFER)!=gl.FRAMEBUFFER_COMPLETE)
+		console.error("Framebuffer Error");
+	    gl.viewport(0, 0, WaterBufferSize, WaterBufferSize);
+    //         gl.clearColor(1.0, 1.0, 0.0, 1.0);
+    //         gl.clear(gl.COLOR_BUFFER_BIT); 
+	    gl.useProgram(forcecalcShaderProgram);
+	    gl.enableVertexAttribArray(forcecalcShaderProgram.vertexAttribute);
+	    gl.enableVertexAttribArray(forcecalcShaderProgram.texcoordAttribute);
+	    gl.bindBuffer(gl.ARRAY_BUFFER, VertexPositionBuffer);
+	    gl.vertexAttribPointer(forcecalcShaderProgram.vertexAttribute, VertexPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
+	    gl.bindBuffer(gl.ARRAY_BUFFER, TexCoordPositionBuffer);
+	    gl.vertexAttribPointer(forcecalcShaderProgram.texcoordAttribute, TexCoordPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
+	    gl.uniform2f(forcecalcShaderProgram.windowSizeUniform, WaterBufferSize, WaterBufferSize);
+	    gl.enable(gl.BLEND);
+	    gl.blendEquation(gl.FUNC_ADD);
+	    gl.blendFunc(gl.ONE,gl.ONE);
+	    gl.drawArrays(gl.TRIANGLES, 0, VertexPositionBuffer.numItems);
+	    checkError();
+	    
+	    //Integrate water velocity:	
+	    gl.bindTexture(gl.TEXTURE_2D, waterVelTX);
+	    gl.bindFramebuffer(gl.FRAMEBUFFER, waterHeightFramebuffer); 
+	    gl.viewport(0, 0, WaterBufferSize, WaterBufferSize); 
+    //         gl.clearColor(1.0, 0.0, 0.0, 1.0);
+    //         gl.clear(gl.COLOR_BUFFER_BIT); 
+	    gl.useProgram(integrateShaderProgram);
+	    gl.enableVertexAttribArray(integrateShaderProgram.vertexAttribute);
+	    gl.enableVertexAttribArray(integrateShaderProgram.texcoordAttribute);
+	    gl.enable(gl.BLEND);
+	    gl.blendColor(0.995,1,1,1);
+	    gl.blendEquation(gl.FUNC_ADD);
+	    gl.blendFunc(gl.CONSTANT_COLOR,gl.CONSTANT_COLOR);
+	    gl.drawArrays(gl.TRIANGLES, 0, VertexPositionBuffer.numItems);
+	}
 	
 	//Reset areas that are walls:
 	gl.bindTexture(gl.TEXTURE_2D, null);
