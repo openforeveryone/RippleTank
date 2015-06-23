@@ -506,6 +506,8 @@
     var rotateProgress = 0;
     var running = true;
     var renderStyle;
+    var rotX = -1;
+    var rotZ = 3.14/4;
 
     function drawScene() {
 // 
@@ -632,8 +634,8 @@
 	{
 	    var rotateProgressNL = (Math.sin((rotateProgress+1.5)*Math.PI)+1)/2;
 	    mat4.translate(mvMatrix, mvMatrix, [0,0, -1*rotateProgressNL]);  
-	    mat4.rotateX(mvMatrix, mvMatrix, -1*rotateProgressNL);   
-	    mat4.rotateZ(mvMatrix, mvMatrix, 3.14/4*rotateProgressNL);	    
+	    mat4.rotateX(mvMatrix, mvMatrix, rotX*rotateProgressNL);
+	    mat4.rotateZ(mvMatrix, mvMatrix, rotZ*rotateProgressNL);
 // 	    mat4.translate(mvMatrix, mvMatrix, [0,0, .5*rotateProgressNL]);   	
 	}
 	
@@ -696,7 +698,13 @@
 // 	console.log("test");
 //     }
     
+    var mouseDragStart = new Object();
+    
     function webGLStart() {
+    
+// 	mouseDragStart.x=null;
+// 	mouseDragStart.y=null;
+	
 	stats = new Stats();	
 	stats.setMode( 0 ); // 0: fps, 1: ms, 2: mb
 	// align top-left
@@ -759,38 +767,75 @@
         
         canvas.addEventListener('mousedown', function(event) {        
 // 	    alert("Clicked " + x + " " + y);	
+	    var x = event.pageX - canvas.offsetLeft,
+		y = event.pageY - canvas.offsetTop;
 	    switch (event.which) {
+
 	    case 1:
-		var x = event.pageX - canvas.offsetLeft,
-		    y = event.pageY - canvas.offsetTop;	
     // 	    x = (x / 2.0 + 0.5) * WaterBufferSize;
-		x = (x / canvas.clientWidth - 0.5) * 2;
-		y = -(y / canvas.clientHeight - 0.5) * 2;
-		
-		drop = [x,y];
-		var invmat = mat4.create();
-		mat4.invert(invmat, mvMatrix);
-		var depth=1;
-		var z=-.9;
-		while (depth>.0)
-		{
-		    z=z+.0005;
-		    var point = vec4.fromValues(x,y,z,1);
-// 		    console.log("point " + point[0] + " " + point[1]+ " " + point[2]+ " " + point[3]);
-		    vec4.transformMat4(point, point, invmat);
-    // 		console.log("point " + point[0] + " " + point[1]+ " " + point[2]+ " " + point[3]);
-// 		    console.log("point " + point[0]/point[3] + " " + point[1]/point[3]+ " " + point[2]/point[3]);
-		    depth=point[2]/point[3];
+		if (event.ctrlKey || event.shiftKey)
+		{		
+		    mouseDragStart.x=x;
+		    mouseDragStart.y=y;
+		    mouseDragStart.rotX=rotX;
+		    mouseDragStart.rotZ=rotZ;
+		}else{
+		    x = (x / canvas.clientWidth - 0.5) * 2;
+		    y = -(y / canvas.clientHeight - 0.5) * 2;
+		    
+		    drop = [x,y];
+		    var invmat = mat4.create();
+		    mat4.invert(invmat, mvMatrix);
+		    var depth=1;
+		    var z=-.9;
+		    while (depth>.0)
+		    {
+			z=z+.0005;
+			var point = vec4.fromValues(x,y,z,1);
+    // 		    console.log("point " + point[0] + " " + point[1]+ " " + point[2]+ " " + point[3]);
+			vec4.transformMat4(point, point, invmat);
+	// 		console.log("point " + point[0] + " " + point[1]+ " " + point[2]+ " " + point[3]);
+    // 		    console.log("point " + point[0]/point[3] + " " + point[1]/point[3]+ " " + point[2]/point[3]);
+			depth=point[2]/point[3];
+		    }
+		    
+		    drop = [point[0]/point[3],point[1]/point[3]];
+		    newDrops.push(drop);    
 		}
-		
-		drop = [point[0]/point[3],point[1]/point[3]];
-		newDrops.push(drop);    
             break;            
 	    case 3:
 		rotateAnim=true;
 	    }
+        });      
+        
+        canvas.addEventListener('mousemove', function(event) {     
+	    var x = event.pageX - canvas.offsetLeft,
+		y = event.pageY - canvas.offsetTop;
+	    if (mouseDragStart.x!=null)
+	    {
+		console.log("Dragging " + event.which + x + " " + y);
+		switch (event.which) {          
+		case 1:
+		    rotZ=mouseDragStart.rotZ+(x-mouseDragStart.x)/300;
+		    rotX=mouseDragStart.rotX+(y-mouseDragStart.y)/300;
+		}
+	    }
         });
         
+        
+        canvas.addEventListener('mouseup', function(event) {     
+	    var x = event.pageX - canvas.offsetLeft,
+		y = event.pageY - canvas.offsetTop;
+	    if (mouseDragStart.x!=null)
+	    {
+		console.log("mouseup " + event.which + x + " " + y);
+		switch (event.which) {          
+		case 1:
+		    mouseDragStart.x=null;
+		    mouseDragStart.y=null;
+		}
+	    }
+        });
         
         for (var i = 0; i < 20; i++)
         {
