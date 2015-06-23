@@ -505,6 +505,7 @@
     var rotateAnim = false;
     var rotateProgress = 0;
     var running = true;
+    var renderStyle;
 
     function drawScene() {
 // 
@@ -650,7 +651,12 @@
         gl.uniformMatrix4fv(renderShaderProgram.matrixUniform, false, mvMatrix);
 	gl.uniform2f(renderShaderProgram.windowSizeUniform, WaterBufferSize, WaterBufferSize);
 	gl.disable(gl.BLEND);
-	gl.drawElements(gl.TRIANGLES, IndexBufferR.numItems, gl.UNSIGNED_SHORT, 0);
+	if (renderStyle=="Grid")
+	    gl.drawElements(gl.LINES, IndexBufferR.numItems, gl.UNSIGNED_SHORT, 0);//TODO: When rendering grid use an EAB suited for the purpose.
+	else if (renderStyle=="Points")
+	    gl.drawElements(gl.POINTS, IndexBufferR.numItems, gl.UNSIGNED_SHORT, 0);
+	else
+	    gl.drawElements(gl.TRIANGLES, IndexBufferR.numItems, gl.UNSIGNED_SHORT, 0);
 	gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
 	
 // 	gl.useProgram(integrateShaderProgram);
@@ -702,8 +708,8 @@
         var canvas = document.getElementById("water-canvas");
 //         canvas.width = document.body.clientWidth; //document.width is obsolete
 // 	canvas.height = document.body.clientHeight; //document.height is obsolete
-// 	canvas.width = window.innerWidth-20;
-// 	canvas.height = window.innerHeight-20;
+	canvas.width = window.innerWidth-20;
+	canvas.height = window.innerHeight-20;
 	
 	canvas.style.position = 'absolute';
 	canvas.style.left = '8px';
@@ -759,7 +765,7 @@
 		    y = event.pageY - canvas.offsetTop;	
     // 	    x = (x / 2.0 + 0.5) * WaterBufferSize;
 		x = (x / canvas.clientWidth - 0.5) * 2;
-		y = -(y / canvas.clientWidth - 0.5) * 2;
+		y = -(y / canvas.clientHeight - 0.5) * 2;
 		
 		drop = [x,y];
 		var invmat = mat4.create();
