@@ -103,6 +103,7 @@
       uniform sampler2D s_texture;
       varying mediump vec2 v_texcoord;
       uniform mediump vec2 windowSize;
+      uniform highp mat3 mmatrix;
       void main() {
 	  highp vec4 colour = texture2D(s_texture, v_texcoord);
 	  //In WebGL transparency is not ignored, so discard it now:
@@ -119,17 +120,17 @@
 		  - texture2D(s_texture, vec2(currentpos.x, currentpos.y-windowSizeR.y)).x);
 	  mediump vec3 va = vec3(1, 0, diffs.x*2.0);
           mediump vec3 vb = vec3(0, 1, diffs.y*2.0);
-          mediump vec3 normalWS = normalize(cross(va,vb));//.rbg; //you may not need to swizzle the normal
+          mediump vec3 normalMS = normalize(cross(va,vb));
+          mediump vec3 normalWS = normalize(mmatrix*normalMS);
           
 //           gl_FragColor =  vec4(normalWS.xy,0, 1.0);
           mediump vec4 color = vec4(0,0,0.4,1);
-	  mediump float specularity = 50.0;
-	  //As we are not rotating the view camera direction is always (0,0,1) and with light in (-1,1,1) halfvec is normalize(1,1,2).
-	  mediump vec3 toLightWS = vec3(-1,1,1);
-	  mediump vec3 halfVectorWS = normalize(vec3(-1,1,2));
+	  //As we are not rotating the view camera direction is always (0,0,1) and with light in (-1,1,1) halfvec is normalize(-1,1,2).
+	  mediump vec3 toLightWS = normalize(vec3(-1,1,1));
+	  mediump vec3 halfVectorWS = normalize(vec3(-1,1,3));
 	  mediump float cosLightAngle = max(dot(normalWS, toLightWS), 0.0);
 	  mediump float cosSpecAngle = max(dot(normalWS, halfVectorWS), 0.0);      
-	  mediump vec4 surfacecolour = color + cosLightAngle * 0.4 + pow(cosSpecAngle, specularity);
+	  mediump vec4 surfacecolour = color + cosLightAngle * 0.4 + pow(cosSpecAngle, 50.0);
 	  surfacecolour.r = max(surfacecolour.r, colour.b);
 // 	  if (colour.b>.1) discard;
           gl_FragColor = surfacecolour;
@@ -288,10 +289,12 @@
         renderShaderProgram.vertexAttribute = gl.getAttribLocation(renderShaderProgram, "posAttr");
         renderShaderProgram.texcoordAttribute = gl.getAttribLocation(renderShaderProgram, "texcoordAttr");
         renderShaderProgram.matrixUniform = gl.getUniformLocation(renderShaderProgram, "matrix");     
+        renderShaderProgram.mmatrixUniform = gl.getUniformLocation(renderShaderProgram, "mmatrix");
         renderShaderProgram.windowSizeUniform = gl.getUniformLocation(renderShaderProgram, "windowSize");  
         
         gl.useProgram(wallShaderProgram); 
         wallShaderProgram.vertexAttribute = gl.getAttribLocation(wallShaderProgram, "vertex");
+        return true;
     }
     
     var waterHeightTX;
@@ -320,19 +323,22 @@
 	gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, WaterBufferSize, WaterBufferSize, 0, gl.RGBA, gl.FLOAT, null);
 	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
 	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-	
 	waterHeightFramebuffer = gl.createFramebuffer();
 	gl.bindFramebuffer(gl.FRAMEBUFFER, waterHeightFramebuffer);
 	gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, waterHeightTX, 0);
-	gl.viewport(0, 0, WaterBufferSize, WaterBufferSize);    
-	gl.clearColor(0.0, 0.0, 0.0, 1.0);        
-        gl.clear(gl.COLOR_BUFFER_BIT);
+	gl.viewport(0, 0, WaterBufferSize, WaterBufferSize); 
 	if (gl.checkFramebufferStatus(gl.FRAMEBUFFER)!=gl.FRAMEBUFFER_COMPLETE)
-	  console.error("Framebuffer Error");
+	{
+	  console.error("Framebuffer Error 1");
+	  return false;
+	}
+	gl.clearColor(0.0, 0.0, 0.0, 1.0);  
+        gl.clear(gl.COLOR_BUFFER_BIT);
 	gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+	checkError();
 
 	waterVelTX = gl.createTexture();
-	gl.bindTexture(gl.TEXTURE_2D, waterVelTX);	
+	gl.bindTexture(gl.TEXTURE_2D, waterVelTX);
 	gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, WaterBufferSize, WaterBufferSize, 0, gl.RGBA, gl.FLOAT, null);
 	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
 	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
@@ -340,15 +346,18 @@
 	waterVelFramebuffer = gl.createFramebuffer();
 	gl.bindFramebuffer(gl.FRAMEBUFFER, waterVelFramebuffer);
 	gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, waterVelTX, 0);
-	gl.viewport(0, 0, WaterBufferSize, WaterBufferSize);    
-	gl.clearColor(0.0, 0.0, 0.0, 1.0);        
-        gl.clear(gl.COLOR_BUFFER_BIT);
+	gl.viewport(0, 0, WaterBufferSize, WaterBufferSize); 
 	if (gl.checkFramebufferStatus(gl.FRAMEBUFFER)!=gl.FRAMEBUFFER_COMPLETE)
-	  console.error("Framebuffer Error");
+	{
+	  console.error("Framebuffer Error 2");
+	  return false;
+	}
+	gl.clearColor(0.0, 0.0, 0.0, 1.0);   
+        gl.clear(gl.COLOR_BUFFER_BIT);
+        
 	gl.bindFramebuffer(gl.FRAMEBUFFER, null);
 	if (gl.checkFramebufferStatus(gl.FRAMEBUFFER)!=gl.FRAMEBUFFER_COMPLETE)
-	  console.error("Framebuffer Error");
-	checkError();
+	  console.error("Framebuffer Error 3");
 	return true;
     }
     
@@ -495,10 +504,10 @@
       BarPositionBuffer.numItems = 12;      
       
       DropPositionBuffer = gl.createBuffer();
-
+      return true;
     }
     
-    var mvMatrix;
+    var mvpMatrix;
     var frameNumber=0;
     var newDrops = [];
     var DropSize = 40;
@@ -563,7 +572,7 @@
 	    gl.bindTexture(gl.TEXTURE_2D, waterHeightTX);
 	    gl.bindFramebuffer(gl.FRAMEBUFFER, waterVelFramebuffer);  
 	    if (gl.checkFramebufferStatus(gl.FRAMEBUFFER)!=gl.FRAMEBUFFER_COMPLETE)
-		console.error("Framebuffer Error");
+		console.error("Framebuffer Error 4");
 	    gl.viewport(0, 0, WaterBufferSize, WaterBufferSize);
     //         gl.clearColor(1.0, 1.0, 0.0, 1.0);
     //         gl.clear(gl.COLOR_BUFFER_BIT); 
@@ -619,7 +628,7 @@
         
 	gl.bindTexture(gl.TEXTURE_2D, waterHeightTX);
     
-	mvMatrix = mat4.create();
+	mvpMatrix = mat4.create();
         
 	if (rotateAnim)
 	{
@@ -628,16 +637,29 @@
 	      rotateAnim=false;
 	}
 	
-	mat4.perspective(mvMatrix, 1, gl.viewportWidth/gl.viewportHeight, 0.1, 5.0);	    
-	mat4.translate(mvMatrix, mvMatrix, [0.0, 0.0, -1.82]);   	    
+	var pMatrix = mat4.create();
+	mat4.perspective(pMatrix, 1, gl.viewportWidth/gl.viewportHeight, 0.1, 5.0);	 
+	
+	var mvMatrix = mat4.create();
+	var vMatrix = mat4.create();
+	var mMatrix = mat4.create();
+	mat4.translate(vMatrix, vMatrix, [0.0, 0.0, -1.82]);   	    
 	if (rotateProgress>0)
 	{
 	    var rotateProgressNL = (Math.sin((rotateProgress+1.5)*Math.PI)+1)/2;
-	    mat4.translate(mvMatrix, mvMatrix, [0,0, -1*rotateProgressNL]);  
-	    mat4.rotateX(mvMatrix, mvMatrix, rotX*rotateProgressNL);
-	    mat4.rotateZ(mvMatrix, mvMatrix, rotZ*rotateProgressNL);
+	    mat4.translate(vMatrix, vMatrix, [0,0, -1*rotateProgressNL]);  
+	    mat4.rotateX(vMatrix, vMatrix, rotX*rotateProgressNL);
+	    mat4.rotateZ(mMatrix, mMatrix, rotZ*rotateProgressNL);
 // 	    mat4.translate(mvMatrix, mvMatrix, [0,0, .5*rotateProgressNL]);   	
 	}
+	
+	mat4.multiply(mvMatrix, vMatrix, mMatrix);
+	mat4.multiply(mvpMatrix, pMatrix, mvMatrix);
+	
+	mat4.multiply(mvpMatrix, pMatrix, mvMatrix);
+	//We only want the upper left of mMatrix:
+	var mMatrix3 = mat3.create();
+	mat3.fromMat4(mMatrix3, mMatrix);
 	
         gl.useProgram(renderShaderProgram);
         gl.disableVertexAttribArray(2);
@@ -650,9 +672,11 @@
         gl.bindBuffer(gl.ARRAY_BUFFER, TexCoordPositionBufferR);
         gl.vertexAttribPointer(renderShaderProgram.texcoordAttribute, TexCoordPositionBufferR.itemSize, gl.FLOAT, false, 0, 0);
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, IndexBufferR);
-        gl.uniformMatrix4fv(renderShaderProgram.matrixUniform, false, mvMatrix);
+        gl.uniformMatrix4fv(renderShaderProgram.matrixUniform, false, mvpMatrix);
+        gl.uniformMatrix3fv(renderShaderProgram.mmatrixUniform, false, mMatrix3);
 	gl.uniform2f(renderShaderProgram.windowSizeUniform, WaterBufferSize, WaterBufferSize);
 	gl.disable(gl.BLEND);
+	gl.enable(gl.DEPTH_TEST);	
 	if (renderStyle=="Grid")
 	    gl.drawElements(gl.LINES, IndexBufferR.numItems, gl.UNSIGNED_SHORT, 0);//TODO: When rendering grid use an EAB suited for the purpose.
 	else if (renderStyle=="Points")
@@ -735,14 +759,15 @@
 // 	mainbody.style.left = '8px';
 // 	mainbody.style.top = '8px';
         
-	
 
-	
-    
-        initGL(canvas);
-        initShaders();
-        initFrameBuffers();
-        initBuffers();
+        if (!initGL(canvas))
+	    return;
+        if (!initShaders())
+	    return;
+        if (!initFrameBuffers())
+	    return;
+        if (!initBuffers())
+	    return;
 
 // 	html2canvas(mainbody, {
 // 	  onrendered: function(canvas1) {
@@ -785,7 +810,7 @@
 		    
 		    drop = [x,y];
 		    var invmat = mat4.create();
-		    mat4.invert(invmat, mvMatrix);
+		    mat4.invert(invmat, mvpMatrix);
 		    var depth=1;
 		    var z=-.9;
 		    while (depth>.0)
