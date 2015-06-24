@@ -510,6 +510,7 @@
     var frameNumber=0;
     var newDrops = [];
     var DropSize = 40;
+    var render3D = false;
     var rotateAnim = false;
     var rotateProgress = 0;
     var running = true;
@@ -629,27 +630,31 @@
     
 	mvpMatrix = mat4.create();
         
-	if (rotateAnim)
-	{
+	if (render3D && rotateProgress < 1) 
 	    rotateProgress+=1.0/60.0;
-	    if (rotateProgress>=1)
-	      rotateAnim=false;
-	}
-	
+	else if (!render3D && rotateProgress > 0)
+	    rotateProgress-=1.0/60.0;
+
 	var pMatrix = mat4.create();
-	mat4.perspective(pMatrix, 1, gl.viewportWidth/gl.viewportHeight, 0.1, 5.0);	 
-	
+
 	var mvMatrix = mat4.create();
 	var vMatrix = mat4.create();
-	var mMatrix = mat4.create();
-	mat4.translate(vMatrix, vMatrix, [0.0, 0.0, -1.82]);   	    
+	var mMatrix = mat4.create();  	    
 	if (rotateProgress>0)
-	{
+	{	
+	    mat4.perspective(pMatrix, 1.005, gl.viewportWidth/gl.viewportHeight, 0.1, 5.0);
+	    mat4.translate(vMatrix, vMatrix, [0.0, 0.0, -1.82]); 
 	    var rotateProgressNL = (Math.sin((rotateProgress+1.5)*Math.PI)+1)/2;
-	    mat4.translate(vMatrix, vMatrix, [0,0, -1*rotateProgressNL]);  
+	    mat4.translate(vMatrix, vMatrix, [0,0, -.25*rotateProgressNL]);
+// 	    mat4.translate(vMatrix, vMatrix, [0,.5*rotateProgressNL, 0]);
 	    mat4.rotateX(vMatrix, vMatrix, rotX*rotateProgressNL);
 	    mat4.rotateZ(mMatrix, mMatrix, rotZ*rotateProgressNL);
 // 	    mat4.translate(mvMatrix, mvMatrix, [0,0, .5*rotateProgressNL]);   	
+	}
+	else
+	{
+	    var ratio = gl.viewportWidth/gl.viewportHeight;
+	    mat4.ortho(pMatrix,-ratio,ratio,-1,1,1,-1);
 	}
 	
 	mat4.multiply(mvMatrix, vMatrix, mMatrix);
@@ -830,34 +835,66 @@
         
     function layout() {
 	console.log("layout");
+	var topBarHeight = 20;
 	stats.domElement.style.position = 'absolute';
 	stats.domElement.style.left = '8px';
 	stats.domElement.style.top = window.innerHeight-58;
 	
 	canvas.width = window.innerWidth-20;
-	canvas.height = window.innerHeight-108;	
+	canvas.height = window.innerHeight-(topBarHeight+26);	
 	canvas.style.position = 'absolute';
 	canvas.style.left = '8px';
-	canvas.style.top = '100px';
+	canvas.style.top = topBarHeight + 16;
 // 	canvas.style.zIndex = '-1';
 
 	gl.viewportWidth = canvas.width;
 	gl.viewportHeight = canvas.height;
     
-        var rotateButton = document.getElementById("rotate");
-	rotateButton.style.position = 'absolute';
-	rotateButton.style.left = '100px';
-	rotateButton.style.top = '8px';
+//         var rotateButton = document.getElementById("projectionButton");
+// 	rotateButton.style.position = 'absolute';
+// 	rotateButton.style.left = '100px';
+// 	rotateButton.style.top = '8px';
     }
     
     
     function runButtonPressed() {
-    	var runButton = document.getElementById("run");
+//     	var runButton = document.getElementById("runbutton");
 	running=!running;
 	if (running)
-	  runButton.innerHTML="Pause";
+	  runButton.innerHTML="Running";
 	else
-	  runButton.innerHTML="Run";	  
+	  runButton.innerHTML="Paused";	  
+    }
+    
+    function renderButtonPressed(){
+	console.log("renderButtonPressed");
+//     	var renderbutton = document.getElementById("renderbutton");
+	if (renderStyle=="Grid")
+	{
+	    renderStyle="Points"
+	    renderbutton.innerHTML="Points";	  	    
+	}
+	else if (renderStyle=="Points")
+	{
+	    renderStyle=null
+	    renderbutton.innerHTML="Solid";	  	    
+	}
+	else
+	{
+	    renderStyle="Grid"
+	    renderbutton.innerHTML="Grid";	  	    
+	}
+    }
+    
+    function projectionButtonPressed()
+    {
+//     	var projectionButton = document.getElementById("projectionButton");    	
+	render3D = !render3D;
+	if (render3D)
+	    projectionButton.innerHTML="3D";
+	else
+	    projectionButton.innerHTML="2D";
+	rotateAnim=true;
     }
 </script>
 </head>
@@ -893,7 +930,8 @@
 	on <a href="tel:+441212888633">+44(0)1212888633</a><br>
     </div>-->
     <canvas id="water-canvas" style="border: none;" width="512" height="512"></canvas>    
-    <button id = "rotate" type="button" onclick="rotateAnim=true;" height = 84>Rotate</button> 
-    <button id = "run" type="button" onclick="runButtonPressed();">Pause</button>
+    <button id = "runButton" type="button" onclick="runButtonPressed();">Running</button>
+    <button id = "projectionButton" type="button" onclick="projectionButtonPressed();">2D</button> 
+    <button id = "renderbutton" type="button" onclick="renderButtonPressed();">Solid</button>	
 </body>
 </html>
