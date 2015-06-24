@@ -3,6 +3,7 @@
 <head>
 <title>Matthew Wellings &mdash; Water Ripple Demo</title>
 <meta http-equiv="content-type" content="text/html; charset=ISO-8859-1">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 
 <script type="text/javascript" src="gl-matrix.js"></script>
 <script type="text/javascript" src="Stats.js"></script>
@@ -185,8 +186,6 @@
         try {
 // 	    gl = WebGLDebugUtils.makeDebugContext(canvas.getContext("experimental-webgl"));
             gl = canvas.getContext("experimental-webgl");
-            gl.viewportWidth = canvas.width;
-            gl.viewportHeight = canvas.height;
         } catch (e) {
         }
         if (gl) {
@@ -723,42 +722,16 @@
 //     }
     
     var mouseDragStart = new Object();
+    var canvas;
     
     function webGLStart() {
     
 // 	mouseDragStart.x=null;
 // 	mouseDragStart.y=null;
-	
 	stats = new Stats();	
 	stats.setMode( 0 ); // 0: fps, 1: ms, 2: mb
 	// align top-left
-	stats.domElement.style.position = 'absolute';
-	stats.domElement.style.left = '8px';
-	stats.domElement.style.top = '528px';
-	document.body.appendChild( stats.domElement );
-	
-        var canvas = document.getElementById("water-canvas");
-//         canvas.width = document.body.clientWidth; //document.width is obsolete
-// 	canvas.height = document.body.clientHeight; //document.height is obsolete
-	canvas.width = window.innerWidth-20;
-	canvas.height = window.innerHeight-20;
-	
-	canvas.style.position = 'absolute';
-	canvas.style.left = '8px';
-	canvas.style.top = '8px';
-// 	canvas.style.zIndex = '-1';
-    
-        var rotateButton = document.getElementById("rotate");
-	rotateButton.style.position = 'absolute';
-	rotateButton.style.left = '100px';
-	rotateButton.style.top = '528px';
-	
-//         var mainbody = document.getElementById("mainbody");
-//         
-// 	mainbody.style.position = 'absolute';
-// 	mainbody.style.left = '8px';
-// 	mainbody.style.top = '8px';
-        
+        canvas = document.getElementById("water-canvas");	       
 
         if (!initGL(canvas))
 	    return;
@@ -768,27 +741,9 @@
 	    return;
         if (!initBuffers())
 	    return;
-
-// 	html2canvas(mainbody, {
-// 	  onrendered: function(canvas1) {
-// // 	      document.body.appendChild(canvas1);
-// // 	      canvas1.style.position = 'absolute';
-// // 	      canvas1.style.left = '18px';
-// // 	      canvas1.style.top = '600px';
-// 	      
-// 	      cvTX = gl.createTexture();
-// 	      gl.bindTexture(gl.TEXTURE_2D, cvTX);	
-// 	      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, canvas1);
-// 	      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-// 	      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-// 	  },
-// 	  width: 512,
-// 	  height: 512	  
-// 	});
-	
-// 	mainbody.style.display = 'none';
-// 	mainbody.remove();
-        gl.enable(gl.DEPTH_TEST);
+	    
+	layout();	
+	document.body.appendChild( stats.domElement );	
         
         canvas.addEventListener('mousedown', function(event) {        
 // 	    alert("Clicked " + x + " " + y);	
@@ -872,9 +827,41 @@
 
 	requestAnimationFrame( renderLoop );
     }	   
+        
+    function layout() {
+	console.log("layout");
+	stats.domElement.style.position = 'absolute';
+	stats.domElement.style.left = '8px';
+	stats.domElement.style.top = window.innerHeight-58;
+	
+	canvas.width = window.innerWidth-20;
+	canvas.height = window.innerHeight-108;	
+	canvas.style.position = 'absolute';
+	canvas.style.left = '8px';
+	canvas.style.top = '100px';
+// 	canvas.style.zIndex = '-1';
+
+	gl.viewportWidth = canvas.width;
+	gl.viewportHeight = canvas.height;
+    
+        var rotateButton = document.getElementById("rotate");
+	rotateButton.style.position = 'absolute';
+	rotateButton.style.left = '100px';
+	rotateButton.style.top = '8px';
+    }
+    
+    
+    function runButtonPressed() {
+    	var runButton = document.getElementById("run");
+	running=!running;
+	if (running)
+	  runButton.innerHTML="Pause";
+	else
+	  runButton.innerHTML="Run";	  
+    }
 </script>
 </head>
-<body onload="webGLStart();">
+<body onload="webGLStart();" onresize="layout()">
     <!--<div id="mainbody">
 	<h1>Matthew Wellings</h1>
 	<p id ="subtitle">Software Developer</p>
@@ -892,7 +879,6 @@
 	by email <a href="mailto:website@matthewwellings.com">website@matthewwellings.com</a><br>
 	on <a href="https://Google.com/+MatthewWellings">GooglePlus</a><br>
 	on <a href="https://www.facebook.com/matt.wellings.90">Facebook</a><br>
-	on <a href="tel:+441212888633">+44(0)1212888633</a><br>
 	on <a href="skype:openforeveryone">Skype</a>
 
 	<h2>Public Projects</h2>
@@ -904,8 +890,10 @@
 
 	<h2>CV</h2>
 	For my full CV please contact me.
+	on <a href="tel:+441212888633">+44(0)1212888633</a><br>
     </div>-->
     <canvas id="water-canvas" style="border: none;" width="512" height="512"></canvas>    
-    <button id = "rotate" type="button" onclick="rotateAnim=true;">Rotate</button> 
+    <button id = "rotate" type="button" onclick="rotateAnim=true;" height = 84>Rotate</button> 
+    <button id = "run" type="button" onclick="runButtonPressed();">Pause</button>
 </body>
 </html>
