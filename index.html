@@ -802,6 +802,15 @@
 	    }
         }); 
         
+        
+        canvas.addEventListener('wheel', function(event) {        
+// 	    console.log("wheel x:" + event.deltaX + " y:" + event.deltaY);	
+	    zoom-=event.deltaY/500;
+	    rotZ+=event.deltaX/500;
+	    zoom=Math.max(zoom, 0.5);
+	    zoom=Math.min(zoom, 2.0);		
+        }); 
+        
         canvas.addEventListener('mousedown', function(event) {
 	    var x = event.pageX - canvas.offsetLeft,
 		y = event.pageY - canvas.offsetTop;
