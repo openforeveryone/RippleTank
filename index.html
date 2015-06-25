@@ -517,6 +517,7 @@
     var renderStyle;
     var rotX = -1;
     var rotZ = 3.14/4;
+    var zoom=1;
 
     function drawScene() {
 // 
@@ -642,10 +643,12 @@
 	var mMatrix = mat4.create();  	    
 	if (rotateProgress>0)
 	{	
+// 	    var ratio = gl.viewportWidth/gl.viewportHeight;
+// 	    mat4.ortho(pMatrix,-ratio,ratio,-1,1,-1,5);
 	    mat4.perspective(pMatrix, 1.005, gl.viewportWidth/gl.viewportHeight, 0.1, 5.0);
 	    mat4.translate(vMatrix, vMatrix, [0.0, 0.0, -1.82]); 
 	    var rotateProgressNL = (Math.sin((rotateProgress+1.5)*Math.PI)+1)/2;
-	    mat4.translate(vMatrix, vMatrix, [0,0, -.25*rotateProgressNL]);
+	    mat4.translate(vMatrix, vMatrix, [0,0, -(1.25-zoom)*rotateProgressNL]);
 // 	    mat4.translate(vMatrix, vMatrix, [0,.5*rotateProgressNL, 0]);
 	    mat4.rotateX(vMatrix, vMatrix, rotX*rotateProgressNL);
 	    mat4.rotateZ(mMatrix, mMatrix, rotZ*rotateProgressNL);
@@ -654,7 +657,7 @@
 	else
 	{
 	    var ratio = gl.viewportWidth/gl.viewportHeight;
-	    mat4.ortho(pMatrix,-ratio,ratio,-1,1,1,-1);
+	    mat4.ortho(pMatrix,-ratio,ratio,-1,1,-1,1);
 	}
 	
 	mat4.multiply(mvMatrix, vMatrix, mMatrix);
@@ -750,20 +753,71 @@
 	layout();	
 	document.body.appendChild( stats.domElement );	
         
-        canvas.addEventListener('mousedown', function(event) {        
-// 	    alert("Clicked " + x + " " + y);	
+        
+        canvas.addEventListener('touchstart', function(event) {        
+// 	    console.log("touchstart");	
+	    if (event.touches.length==2)
+	    {
+		if (render3D)
+		{
+		    mouseDragStart.angle = Math.atan2((event.touches[0].clientY-event.touches[1].clientY),(event.touches[0].clientX-event.touches[1].clientX));
+		    mouseDragStart.x=(event.touches[0].clientX+event.touches[1].clientX)/2;
+		    mouseDragStart.y=(event.touches[0].clientY+event.touches[1].clientY)/2;
+		    mouseDragStart.distance=Math.sqrt(Math.pow((event.touches[0].clientX-event.touches[1].clientX),2)+Math.pow((event.touches[0].clientY-event.touches[1].clientY),2));
+		    mouseDragStart.rotX=rotX;
+		    mouseDragStart.rotZ=rotZ;
+		    mouseDragStart.zoom=zoom;
+// 		    console.log("mouseDragStart x:" + mouseDragStart.x + " y:" + mouseDragStart.y + " " + mouseDragStart.distance+ " " + mouseDragStart.angle + " " + zoom);
+		}
+	    }
+        });      
+        
+        canvas.addEventListener('touchmove', function(event) {        
+// 	    console.log("touchmove");		    	
+	    if (event.touches.length==2 && render3D)
+	    {
+		var angle = Math.atan2((event.touches[0].clientY-event.touches[1].clientY),(event.touches[0].clientX-event.touches[1].clientX));
+// 		if (angle>0.9 && mouseDragStart.lastAngle
+// 		mouseDragStart.lastAngle = angle;
+		var x=(event.touches[0].clientX+event.touches[1].clientX)/2;
+		var y=(event.touches[0].clientY+event.touches[1].clientY)/2;
+		var distance=Math.sqrt(Math.pow((event.touches[0].clientX-event.touches[1].clientX),2)+Math.pow((event.touches[0].clientY-event.touches[1].clientY),2));
+		zoom=mouseDragStart.zoom*(distance/mouseDragStart.distance);
+		zoom=Math.max(zoom, 0.5);
+		zoom=Math.min(zoom, 2.0);		
+		rotZ=mouseDragStart.rotZ-(angle-mouseDragStart.angle);
+		rotX=mouseDragStart.rotX+(y-mouseDragStart.y)/300;
+// 		console.log("Touch Dragging " + x + " " + y + " " + angle + " startzoom:" +mouseDragStart.zoom + " zoom:" +zoom+ " " + distance+ " " + mouseDragStart.distance);
+	    }
+        }); 
+        
+        canvas.addEventListener('touchend', function(event) {        
+// 	    console.log("touchend");		    
+	    if (event.touches.length<2)
+	    {
+		mouseDragStart.x=null;
+		mouseDragStart.y=null;
+		console.log("Touch Dragging End zoom:" + zoom);
+	    }
+        }); 
+        
+        canvas.addEventListener('mousedown', function(event) {
 	    var x = event.pageX - canvas.offsetLeft,
 		y = event.pageY - canvas.offsetTop;
+// 	    console.log("mousedown " + x +" " + y);
 	    switch (event.which) {
 
 	    case 1:
     // 	    x = (x / 2.0 + 0.5) * WaterBufferSize;
 		if (event.ctrlKey || event.shiftKey)
-		{		
-		    mouseDragStart.x=x;
-		    mouseDragStart.y=y;
-		    mouseDragStart.rotX=rotX;
-		    mouseDragStart.rotZ=rotZ;
+		{	
+		    if (render3D)
+		    {
+			mouseDragStart.x=x;
+			mouseDragStart.y=y;
+			mouseDragStart.rotX=rotX;
+			mouseDragStart.rotZ=rotZ;
+		    }
 		}else{
 		    x = (x / canvas.clientWidth - 0.5) * 2;
 		    y = -(y / canvas.clientHeight - 0.5) * 2;
@@ -796,6 +850,7 @@
         canvas.addEventListener('mousemove', function(event) {     
 	    var x = event.pageX - canvas.offsetLeft,
 		y = event.pageY - canvas.offsetTop;
+// 	    console.log("mousemove " + x +" " + y);
 	    if (mouseDragStart.x!=null)
 	    {
 		console.log("Dragging " + event.which + x + " " + y);
@@ -806,11 +861,11 @@
 		}
 	    }
         });
-        
-        
+                
         canvas.addEventListener('mouseup', function(event) {     
 	    var x = event.pageX - canvas.offsetLeft,
 		y = event.pageY - canvas.offsetTop;
+// 	    console.log("mouseup " + x +" " + y);
 	    if (mouseDragStart.x!=null)
 	    {
 		console.log("mouseup " + event.which + x + " " + y);
