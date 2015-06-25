@@ -147,6 +147,7 @@
     void main() {
 	v_texcoord=texcoordAttr;
 	highp vec4 height = texture2D(s_texture, v_texcoord);
+	gl_PointSize = 1.0;
 	gl_Position = matrix * vec4(posAttr.xy, height.x*.2, 1);
     }
 </script>
