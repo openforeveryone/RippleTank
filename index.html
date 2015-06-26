@@ -127,14 +127,29 @@
 //           gl_FragColor =  vec4(normalWS.xy,0, 1.0);
           mediump vec4 color = vec4(0,0,0.4,1);
 	  //As we are not rotating the view camera direction is always (0,0,1) and with light in (-1,1,1) halfvec is normalize(-1,1,2).
-	  mediump vec3 toLightWS = normalize(vec3(-1,1,1));
-	  mediump vec3 halfVectorWS = normalize(vec3(-1,1,3));
+// 	  mediump vec3 toLightWS = normalize(vec3(-1,1,1));
+	  mediump vec3 toLightWS = vec3(-.57735,.57735,.57735);
+// 	  mediump vec3 halfVectorWS = normalize(vec3(-1,1,3));
+	  mediump vec3 halfVectorWS = vec3(-0.301511,0.301511,0.904534);
 	  mediump float cosLightAngle = max(dot(normalWS, toLightWS), 0.0);
 	  mediump float cosSpecAngle = max(dot(normalWS, halfVectorWS), 0.0);      
 	  mediump vec4 surfacecolour = color + cosLightAngle * 0.4 + pow(cosSpecAngle, 50.0);
-	  surfacecolour.r = max(surfacecolour.r, colour.b);
+// 	  surfacecolour.r = max(surfacecolour.r, colour.b);
 // 	  if (colour.b>.1) discard;
           gl_FragColor = surfacecolour;
+      }
+</script>
+
+<script id="render1-fs" type="x-shader/x-fragment">
+      #define M_PI_2 1.57079632679489661923
+      uniform sampler2D s_texture;
+      varying mediump vec2 v_texcoord;
+      uniform mediump vec2 windowSize;
+      void main() {
+	  highp vec4 colour = texture2D(s_texture, v_texcoord);
+//           gl_FragColor = vec4(sin(max(colour.r,0.0)*M_PI_2),colour.b,sin(-min(colour.r,0.0)*M_PI_2),1);
+          gl_FragColor = vec4(max(colour.r,0.0)*5.0,0.0*colour.b,(-min(colour.r,0.0)*5.0),1);
+//           gl_FragColor = vec4(1.0-max(colour.r,0.0)*2.0,1.0-(-min(colour.r,0.0)*2.0),1.0-colour.b,1);
       }
 </script>
 
@@ -142,7 +157,7 @@
     uniform sampler2D s_texture;
     attribute highp vec2 posAttr;
     attribute highp vec2 texcoordAttr;
-    varying lowp vec2 v_texcoord;
+    varying highp vec2 v_texcoord;
     uniform highp mat4 matrix;
     void main() {
 	v_texcoord=texcoordAttr;
@@ -153,9 +168,10 @@
 </script>
 
 <script id="wall-fs" type="x-shader/x-fragment">
+      uniform mediump vec4 colour;
       void main(void)
       {
-	  gl_FragColor = vec4(0,0,1,0);
+	  gl_FragColor = colour;//vec4(0,0,1,0);
       }
 </script>
 
@@ -190,6 +206,9 @@
         } catch (e) {
         }
         if (gl) {
+// 	    alert(gl.getParameter(gl.VENDOR));
+// 	    alert(gl.getParameter(gl.VERSION));
+// 	    alert(gl.getParameter(gl.RENDERER));
             return true;
 	}else{
 	    alert("This page requires WebGL but it cannot be accessed, try upgrading your browser or graphics drivers.");
@@ -258,6 +277,7 @@
         var forcecalcVertexShader = getShader(gl, "forcecalc-vs");
         var integrateFragmentShader = getShader(gl, "integrate-fs");
         var integrateVertexShader = getShader(gl, "integrate-vs");
+        var render1FragmentShader = getShader(gl, "render1-fs");
         var renderFragmentShader = getShader(gl, "render-fs");
         var renderVertexShader = getShader(gl, "render-vs");
         var wallFragmentShader = getShader(gl, "wall-fs");
@@ -267,6 +287,7 @@
 	forcecalcShaderProgram = getShaderProgram(gl, forcecalcFragmentShader, forcecalcVertexShader);
 	integrateShaderProgram = getShaderProgram(gl, integrateFragmentShader, integrateVertexShader);
 	renderShaderProgram = getShaderProgram(gl, renderFragmentShader, renderVertexShader);
+	render1ShaderProgram = getShaderProgram(gl, render1FragmentShader, renderVertexShader);
 	wallShaderProgram = getShaderProgram(gl, wallFragmentShader, wallVertexShader);
 
         gl.useProgram(dropShaderProgram);
@@ -292,7 +313,13 @@
         renderShaderProgram.mmatrixUniform = gl.getUniformLocation(renderShaderProgram, "mmatrix");
         renderShaderProgram.windowSizeUniform = gl.getUniformLocation(renderShaderProgram, "windowSize");  
         
+        gl.useProgram(render1ShaderProgram);
+        render1ShaderProgram.vertexAttribute = gl.getAttribLocation(render1ShaderProgram, "posAttr");
+        render1ShaderProgram.texcoordAttribute = gl.getAttribLocation(render1ShaderProgram, "texcoordAttr");
+        render1ShaderProgram.matrixUniform = gl.getUniformLocation(render1ShaderProgram, "matrix");     
+        
         gl.useProgram(wallShaderProgram); 
+        wallShaderProgram.colourUniform = gl.getUniformLocation(wallShaderProgram, "colour");
         wallShaderProgram.vertexAttribute = gl.getAttribLocation(wallShaderProgram, "vertex");
         return true;
     }
@@ -320,6 +347,8 @@
 // 	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_BORDER);
 // 	var borderColour = [0.5, 0.0, 0.0, 1.0];
 // 	gl.texParameterf(gl.TEXTURE_2D, gl.TEXTURE_BORDER_COLOR, borderColour);
+// 	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+// 	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 	gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, WaterBufferSize, WaterBufferSize, 0, gl.RGBA, gl.FLOAT, null);
 	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
 	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
@@ -339,6 +368,8 @@
 
 	waterVelTX = gl.createTexture();
 	gl.bindTexture(gl.TEXTURE_2D, waterVelTX);
+// 	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+// 	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 	gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, WaterBufferSize, WaterBufferSize, 0, gl.RGBA, gl.FLOAT, null);
 	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
 	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
@@ -400,7 +431,8 @@
     var TexCoordPositionBufferR;
     var IndexBufferR;
     var WallPositionBuffer;
-    var BarPositionBuffer;
+    var Bar1GPositionBuffer;
+    var Bar2GPositionBuffer;
     var DropPositionBuffer;
     
     function initBuffers() {    
@@ -480,28 +512,76 @@
       WallPositionBuffer.itemSize = 2;
       WallPositionBuffer.numItems = 8;      
       
-      BarPositionBuffer = gl.createBuffer();
-      gl.bindBuffer(gl.ARRAY_BUFFER, BarPositionBuffer);
+      var gapDistance = .4;
+      var wallPos = .5;
+      var gapWidth = .1;
+      
+      Bar1GPositionBuffer = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, Bar1GPositionBuffer);
       var barvertices = [
-	  -.025, 1,
-	  -.025, .05,
-	  .025, .05,
+	  wallPos+-.025, 1,
+	  wallPos+-.025, gapWidth/2,
+	  wallPos+.025, gapWidth/2,
 
-	  .025, 1,
-	  .025, .05,
-	  -.025, 1,
+	  wallPos+.025, 1,
+	  wallPos+.025, gapWidth/2,
+	  wallPos+-.025, 1,
 	  
-	  -.025, -1,
-	  -.025, -0.05,
-	  .025, -.05,
+	  wallPos+-.025, -1,
+	  wallPos+-.025, -gapWidth/2,
+	  wallPos+.025, -gapWidth/2,
 
-	  .025, -1,
-	  .025, -0.05,
-	  -.025, -1
+	  wallPos+.025, -1,
+	  wallPos+.025, -gapWidth/2,
+	  wallPos+-.025, -1
       ];
       gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(barvertices), gl.STATIC_DRAW);
-      BarPositionBuffer.itemSize = 2;
-      BarPositionBuffer.numItems = 12;      
+      Bar1GPositionBuffer.itemSize = 2;
+      Bar1GPositionBuffer.numItems = 12;      
+      
+      
+      Bar2GPositionBuffer = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, Bar2GPositionBuffer);
+      var barvertices = [
+	  //Top
+	  wallPos+-.025, 1,
+	  wallPos+-.025, gapDistance+(gapWidth/2),
+	  wallPos+.025, gapDistance+(gapWidth/2),
+
+	  wallPos+.025, 1,
+	  wallPos+.025, gapDistance+(gapWidth/2),
+	  wallPos+-.025, 1,
+	  //Centre
+	  wallPos+-.025, -(gapDistance-(gapWidth/2)),
+	  wallPos+-.025, gapDistance-(gapWidth/2),
+	  wallPos+.025, gapDistance-(gapWidth/2),
+
+	  wallPos+.025, -(gapDistance-(gapWidth/2)),
+	  wallPos+.025, gapDistance-(gapWidth/2),
+	  wallPos+-.025, -(gapDistance-(gapWidth/2)),
+	  //Bottom
+	  wallPos+-.025, -1,
+	  wallPos+-.025, -(gapDistance+(gapWidth/2)),
+	  wallPos+.025, -(gapDistance+(gapWidth/2)),
+
+	  wallPos+.025, -1,
+	  wallPos+.025, -(gapDistance+(gapWidth/2)),
+	  wallPos+-.025, -1
+      ];
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(barvertices), gl.STATIC_DRAW);
+      Bar2GPositionBuffer.itemSize = 2;
+      Bar2GPositionBuffer.numItems = 18;      
+      
+      //Dipper
+      DipperPositionBuffer = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, DipperPositionBuffer);
+      var dippervertices = [
+	  .9,.6,
+	  .9,-.6
+      ];
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(dippervertices), gl.STATIC_DRAW);
+      DipperPositionBuffer.itemSize = 2;
+      DipperPositionBuffer.numItems = 2;  
       
       DropPositionBuffer = gl.createBuffer();
       return true;
@@ -519,6 +599,8 @@
     var rotX = -1;
     var rotZ = 3.14/4;
     var zoom=1;
+    var useBumpmap = true;
+    var slits = 2;
 
     function drawScene() {
 // 
@@ -527,7 +609,8 @@
         
 	gl.disable(gl.DEPTH_TEST);
 	gl.disable(gl.CULL_FACE);
-        frameNumber++;      
+	if (running)
+	  frameNumber++;      
         //Add a new drop 200 frames in:
         if (frameNumber==200)
         {
@@ -612,13 +695,26 @@
 	gl.bindTexture(gl.TEXTURE_2D, null);
 	gl.disable(gl.BLEND);	
         gl.useProgram(wallShaderProgram);
+        gl.uniform4f(wallShaderProgram.colourUniform, 0,0,1,0);
 	gl.enableVertexAttribArray(wallShaderProgram.vertexAttribute);	
         gl.bindBuffer(gl.ARRAY_BUFFER, WallPositionBuffer);
-        gl.vertexAttribPointer(WallPositionBuffer.vertexAttribute, WallPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
+        gl.vertexAttribPointer(wallShaderProgram.vertexAttribute, WallPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
 	gl.drawArrays(gl.LINES, 0, WallPositionBuffer.numItems);
-        gl.bindBuffer(gl.ARRAY_BUFFER, BarPositionBuffer);
-        gl.vertexAttribPointer(BarPositionBuffer.vertexAttribute, BarPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
-	gl.drawArrays(gl.TRIANGLES, 0, BarPositionBuffer.numItems);
+	if (slits==1)
+	{
+	    gl.bindBuffer(gl.ARRAY_BUFFER, Bar1GPositionBuffer);
+	    gl.vertexAttribPointer(wallShaderProgram.vertexAttribute, Bar1GPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
+	    gl.drawArrays(gl.TRIANGLES, 0, Bar1GPositionBuffer.numItems);
+	}else if (slits==2)
+	{
+	    gl.bindBuffer(gl.ARRAY_BUFFER, Bar2GPositionBuffer);
+	    gl.vertexAttribPointer(wallShaderProgram.vertexAttribute, Bar2GPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
+	    gl.drawArrays(gl.TRIANGLES, 0, Bar2GPositionBuffer.numItems);
+	}
+        gl.bindBuffer(gl.ARRAY_BUFFER, DipperPositionBuffer);        
+        gl.uniform4f(wallShaderProgram.colourUniform, Math.sin(frameNumber/10)*.5,0,1,0);
+        gl.vertexAttribPointer(wallShaderProgram.vertexAttribute, DipperPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
+	gl.drawArrays(gl.LINES, 0, DipperPositionBuffer.numItems);
 	
         
         //Render to screen
@@ -667,22 +763,36 @@
 	mat4.multiply(mvpMatrix, pMatrix, mvMatrix);
 	//We only want the upper left of mMatrix:
 	var mMatrix3 = mat3.create();
-	mat3.fromMat4(mMatrix3, mMatrix);
+	mat3.fromMat4(mMatrix3, mMatrix);	
 	
-        gl.useProgram(renderShaderProgram);
         gl.disableVertexAttribArray(2);
         gl.disableVertexAttribArray(3);
-	gl.enableVertexAttribArray(renderShaderProgram.vertexAttribute);
-	gl.enableVertexAttribArray(renderShaderProgram.texcoordAttribute);
-	
-        gl.bindBuffer(gl.ARRAY_BUFFER, VertexPositionBufferR);
-        gl.vertexAttribPointer(renderShaderProgram.vertexAttribute, VertexPositionBufferR.itemSize, gl.FLOAT, false, 0, 0);
-        gl.bindBuffer(gl.ARRAY_BUFFER, TexCoordPositionBufferR);
-        gl.vertexAttribPointer(renderShaderProgram.texcoordAttribute, TexCoordPositionBufferR.itemSize, gl.FLOAT, false, 0, 0);
-        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, IndexBufferR);
-        gl.uniformMatrix4fv(renderShaderProgram.matrixUniform, false, mvpMatrix);
-        gl.uniformMatrix3fv(renderShaderProgram.mmatrixUniform, false, mMatrix3);
-	gl.uniform2f(renderShaderProgram.windowSizeUniform, WaterBufferSize, WaterBufferSize);
+	if(useBumpmap)
+	{
+	    gl.useProgram(renderShaderProgram);
+	    gl.uniformMatrix4fv(renderShaderProgram.matrixUniform, false, mvpMatrix);
+	    gl.uniformMatrix3fv(renderShaderProgram.mmatrixUniform, false, mMatrix3);
+	    gl.uniform2f(renderShaderProgram.windowSizeUniform, WaterBufferSize, WaterBufferSize);
+	    gl.enableVertexAttribArray(renderShaderProgram.vertexAttribute);
+	    gl.enableVertexAttribArray(renderShaderProgram.texcoordAttribute);
+	    gl.bindBuffer(gl.ARRAY_BUFFER, VertexPositionBufferR);
+	    gl.vertexAttribPointer(renderShaderProgram.vertexAttribute, VertexPositionBufferR.itemSize, gl.FLOAT, false, 0, 0);
+	    gl.bindBuffer(gl.ARRAY_BUFFER, TexCoordPositionBufferR);
+	    gl.vertexAttribPointer(renderShaderProgram.texcoordAttribute, TexCoordPositionBufferR.itemSize, gl.FLOAT, false, 0, 0);
+	    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, IndexBufferR);
+	}
+	else
+	{
+	    gl.useProgram(render1ShaderProgram);
+	    gl.uniformMatrix4fv(render1ShaderProgram.matrixUniform, false, mvpMatrix);
+	    gl.enableVertexAttribArray(render1ShaderProgram.vertexAttribute);
+	    gl.enableVertexAttribArray(render1ShaderProgram.texcoordAttribute);
+	    gl.bindBuffer(gl.ARRAY_BUFFER, VertexPositionBufferR);
+	    gl.vertexAttribPointer(render1ShaderProgram.vertexAttribute, VertexPositionBufferR.itemSize, gl.FLOAT, false, 0, 0);
+	    gl.bindBuffer(gl.ARRAY_BUFFER, TexCoordPositionBufferR);
+	    gl.vertexAttribPointer(render1ShaderProgram.texcoordAttribute, TexCoordPositionBufferR.itemSize, gl.FLOAT, false, 0, 0);
+	    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, IndexBufferR);
+	}
 	gl.disable(gl.BLEND);
 	gl.enable(gl.DEPTH_TEST);	
 	if (renderStyle=="Grid")
@@ -863,7 +973,7 @@
 // 	    console.log("mousemove " + x +" " + y);
 	    if (mouseDragStart.x!=null)
 	    {
-		console.log("Dragging " + event.which + x + " " + y);
+// 		console.log("Dragging " + event.which + x + " " + y);
 		switch (event.which) {          
 		case 1:
 		    rotZ=mouseDragStart.rotZ+(x-mouseDragStart.x)/300;
@@ -960,6 +1070,16 @@
 	else
 	    projectionButton.innerHTML="2D";
 	rotateAnim=true;
+    }    
+    
+    function shadingButtonPressed()
+    {
+//     	var projectionButton = document.getElementById("projectionButton");    	
+	useBumpmap = !useBumpmap;
+	if (useBumpmap)
+	    shadingbutton.innerHTML="Phong";
+	else
+	    shadingbutton.innerHTML="Height";
     }
 </script>
 </head>
@@ -994,9 +1114,10 @@
 	For my full CV please contact me.
 	on <a href="tel:+441212888633">+44(0)1212888633</a><br>
     </div>-->
-    <canvas id="water-canvas" style="border: none;" width="512" height="512"></canvas>    
     <button id = "runButton" type="button" onclick="runButtonPressed();">Running</button>
     <button id = "projectionButton" type="button" onclick="projectionButtonPressed();">2D</button> 
-    <button id = "renderbutton" type="button" onclick="renderButtonPressed();">Solid</button>	
+    <button id = "renderbutton" type="button" onclick="renderButtonPressed();">Solid</button>
+    <button id = "shadingbutton" type="button" onclick="shadingButtonPressed();">Phong</button>	
+    <canvas id="water-canvas" style="border: none;" width="512" height="512"></canvas>    
 </body>
 </html>
