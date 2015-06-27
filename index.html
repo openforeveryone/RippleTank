@@ -268,7 +268,7 @@
     var forcecalcShaderProgram;
     var integrateShaderProgram;
     var renderShaderProgram;
-    var wallShaderProgram
+    var wallShaderProgram;
 
     function initShaders() {
         var dropFragmentShader = getShader(gl, "drop-fs");
@@ -390,7 +390,7 @@
 	if (gl.checkFramebufferStatus(gl.FRAMEBUFFER)!=gl.FRAMEBUFFER_COMPLETE)
 	  console.error("Framebuffer Error 3");
 	return true;
-    }
+    }    
     
     var meshVertices = [];
     var meshTexCoords = [];
@@ -601,6 +601,8 @@
     var zoom=1;
     var useBumpmap = true;
     var slits = 2;
+    var dipper = true;
+    var clearOnNextFrame = false;
 
     function drawScene() {
 // 
@@ -649,6 +651,18 @@
 	    checkError();
 	    newDrops = [];
         }
+        
+        if(clearOnNextFrame)
+        {
+	    gl.bindFramebuffer(gl.FRAMEBUFFER, waterHeightFramebuffer);
+	    gl.clearColor(0.0, 0.0, 0.0, 1.0);  
+	    gl.clear(gl.COLOR_BUFFER_BIT);
+	    gl.bindFramebuffer(gl.FRAMEBUFFER, waterVelFramebuffer);
+	    gl.clearColor(0.0, 0.0, 0.0, 1.0);  
+	    gl.clear(gl.COLOR_BUFFER_BIT);
+	    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+	    clearOnNextFrame=false;
+	}
         
         if (running)
         {
@@ -711,10 +725,13 @@
 	    gl.vertexAttribPointer(wallShaderProgram.vertexAttribute, Bar2GPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
 	    gl.drawArrays(gl.TRIANGLES, 0, Bar2GPositionBuffer.numItems);
 	}
-        gl.bindBuffer(gl.ARRAY_BUFFER, DipperPositionBuffer);        
-        gl.uniform4f(wallShaderProgram.colourUniform, Math.sin(frameNumber/10)*.5,0,1,0);
-        gl.vertexAttribPointer(wallShaderProgram.vertexAttribute, DipperPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
-	gl.drawArrays(gl.LINES, 0, DipperPositionBuffer.numItems);
+	if (dipper)
+	{
+	    gl.bindBuffer(gl.ARRAY_BUFFER, DipperPositionBuffer);        
+	    gl.uniform4f(wallShaderProgram.colourUniform, Math.sin(frameNumber/10)*.5,0,1,0);
+	    gl.vertexAttribPointer(wallShaderProgram.vertexAttribute, DipperPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
+	    gl.drawArrays(gl.LINES, 0, DipperPositionBuffer.numItems);
+	}
 	
         
         //Render to screen
@@ -1010,7 +1027,7 @@
         
     function layout() {
 	console.log("layout");
-	var topBarHeight = 20;
+	var topBarHeight = 50;
 	stats.domElement.style.position = 'absolute';
 	stats.domElement.style.left = '8px';
 	stats.domElement.style.top = window.innerHeight-58;
@@ -1031,55 +1048,78 @@
 // 	rotateButton.style.top = '8px';
     }
     
-    
     function runButtonPressed() {
-//     	var runButton = document.getElementById("runbutton");
 	running=!running;
 	if (running)
-	  runButton.innerHTML="Running";
+	  runButton.innerHTML="Pause";
 	else
-	  runButton.innerHTML="Paused";	  
+	  runButton.innerHTML="Run";	  
     }
     
     function renderButtonPressed(){
 	console.log("renderButtonPressed");
-//     	var renderbutton = document.getElementById("renderbutton");
 	if (renderStyle=="Grid")
 	{
 	    renderStyle="Points"
-	    renderbutton.innerHTML="Points";	  	    
+	    renderLabel.innerHTML="Points";	  	    
 	}
 	else if (renderStyle=="Points")
 	{
 	    renderStyle=null
-	    renderbutton.innerHTML="Solid";	  	    
+	    renderLabel.innerHTML="Solid";	  	    
 	}
 	else
 	{
 	    renderStyle="Grid"
-	    renderbutton.innerHTML="Grid";	  	    
+	    renderLabel.innerHTML="Grid";	  	    
 	}
     }
     
     function projectionButtonPressed()
     {
-//     	var projectionButton = document.getElementById("projectionButton");    	
 	render3D = !render3D;
 	if (render3D)
-	    projectionButton.innerHTML="3D";
+	    projectionLabel.innerHTML="3D";
 	else
-	    projectionButton.innerHTML="2D";
+	    projectionLabel.innerHTML="2D";
 	rotateAnim=true;
     }    
     
     function shadingButtonPressed()
-    {
-//     	var projectionButton = document.getElementById("projectionButton");    	
+    {  	
 	useBumpmap = !useBumpmap;
 	if (useBumpmap)
-	    shadingbutton.innerHTML="Phong";
+	    shaderLabel.innerHTML="Phong";
 	else
-	    shadingbutton.innerHTML="Height";
+	    shaderLabel.innerHTML="Height";
+    }
+            
+    function wallButtonPressed()
+    { 	
+	slits++;
+	if (slits==1)
+	    wallLabel.innerHTML="1 Slit";
+	else if (slits==2)
+	    wallLabel.innerHTML="2 Slits";
+	else 
+	{
+	    slits=0;	    
+	    wallLabel.innerHTML="No wall";
+	}
+    }
+    
+    function dipperButtonPressed()
+    { 	
+	dipper = !dipper;
+	if (dipper)
+	    dipperLabel.innerHTML="On";
+	else
+	    dipperLabel.innerHTML="Off";
+    }
+        
+    function clearButtonPressed()
+    {
+	clearOnNextFrame=true;
     }
 </script>
 </head>
@@ -1114,10 +1154,20 @@
 	For my full CV please contact me.
 	on <a href="tel:+441212888633">+44(0)1212888633</a><br>
     </div>-->
-    <button id = "runButton" type="button" onclick="runButtonPressed();">Running</button>
-    <button id = "projectionButton" type="button" onclick="projectionButtonPressed();">2D</button> 
-    <button id = "renderbutton" type="button" onclick="renderButtonPressed();">Solid</button>
-    <button id = "shadingbutton" type="button" onclick="shadingButtonPressed();">Phong</button>	
+    <table><tr  align=center>
+    <td><button id = "runButton" type="button" onclick="runButtonPressed();" style="height:60px; width:60px">Pause</button></td>
+    <td><button id = "clearButton" type="button" onclick="clearButtonPressed();" style="height:60px; width:60px">Clear</button>
+    <td ><button id = "projectionButton" type="button" onclick="projectionButtonPressed();" style="height:40px; width:60px">2D/3D</button> <br>
+    <span id="projectionLabel">2D</span></td>
+    <td><button id = "renderbutton" type="button" onclick="renderButtonPressed();" style="height:40px; width:60px">Render Style</button><br>
+    <span id="renderLabel">2D</span></td>
+    <td><button id = "shadingbutton" type="button" onclick="shadingButtonPressed();" style="height:40px; width:60px">Shader</button><br>
+    <span id="shaderLabel">Phong</span></td>
+    <td><button id = "wallbutton" type="button" onclick="wallButtonPressed();" style="height:40px; width:60px">Wall</button>	<br>
+    <span id="wallLabel">1 Slit</span></td>
+    <td><button id = "dipperbutton" type="button" onclick="dipperButtonPressed();" style="height:40px; width:60px">Dipper</button><br>
+    <span id="dipperLabel">On</span></td>
+    </tr></table>
     <canvas id="water-canvas" style="border: none;" width="512" height="512"></canvas>    
 </body>
 </html>
