@@ -246,9 +246,15 @@ body {
         } catch (e) {
         }
         if (gl) {
-// 	    alert(gl.getParameter(gl.VENDOR));
-// 	    alert(gl.getParameter(gl.VERSION));
-// 	    alert(gl.getParameter(gl.RENDERER));
+	    console.log("GL_VENDOR: " + gl.getParameter(gl.VENDOR));
+	    console.log("GL_VERSION: " + gl.getParameter(gl.VERSION));
+	    console.log("GL_RENDERER: " + gl.getParameter(gl.RENDERER));
+	    
+	    var ext = gl.getExtension('WEBGL_debug_renderer_info');
+	    if (ext) {
+		console.log("UNMASKED_VENDOR_WEBGL: " + gl.getParameter(ext.UNMASKED_VENDOR_WEBGL));
+		console.log("UNMASKED_RENDERER_WEBGL: " + gl.getParameter(ext.UNMASKED_RENDERER_WEBGL));
+	    }
             return true;
 	}else{
 	    alert("This page requires WebGL but it cannot be accessed, try upgrading your browser or graphics drivers.");
@@ -378,11 +384,32 @@ body {
     var cvTX;
     
     
-    function initFrameBuffers() {
+    function initFrameBuffers(forceHalfFloat) {
+    
+	var floatEnum;
+	var framebufferError = false;
+	var usingOES_texture_float = false;
+	if (typeof(forceHalfFloat)==='undefined') forceHalfFloat = false;
+	var debugRendererInfo = gl.getExtension('WEBGL_debug_renderer_info');
 	var ext = gl.getExtension('OES_texture_float');
-	if (!ext) {
-	  alert("This page requires the 'OES_texture_float' extension, try upgrading your browser or graphics drivers.");
-	  return false;
+	//Do not try to use OES_texture_float on Adreno, it does not work with blending.
+	if (!ext || (debugRendererInfo && gl.getParameter(debugRendererInfo.UNMASKED_RENDERER_WEBGL).includes("Adreno")) || forceHalfFloat) 
+	{	
+	    var ext1 = gl.getExtension('OES_texture_half_float');
+	    if (!ext1)
+	    {
+		alert("This page requires ether the 'OES_texture_half_float' extension, try upgrading your browser or graphics drivers.");
+		return false;
+	    }else{
+		console.log("Using OES_texture_half_float");
+		floatEnum=0x8D61;
+	    }
+	}
+	else
+	{
+	    console.log("Using OES_texture_float");
+	    usingOES_texture_float=true;
+	    floatEnum=gl.FLOAT;
 	}
 	
 	checkError();
@@ -395,7 +422,7 @@ body {
 // 	gl.texParameterf(gl.TEXTURE_2D, gl.TEXTURE_BORDER_COLOR, borderColour);
 	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
 	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-	gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, WaterBufferSize, WaterBufferSize, 0, gl.RGBA, gl.FLOAT, null);
+	gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, WaterBufferSize, WaterBufferSize, 0, gl.RGBA, floatEnum, null);
 	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
 	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
 	waterHeightFramebuffer = gl.createFramebuffer();
@@ -405,7 +432,7 @@ body {
 	if (gl.checkFramebufferStatus(gl.FRAMEBUFFER)!=gl.FRAMEBUFFER_COMPLETE)
 	{
 	  console.error("Framebuffer Error 1");
-	  return false;
+	  framebufferError=true;
 	}
 	gl.clearColor(0.0, 0.0, 0.0, 1.0);  
         gl.clear(gl.COLOR_BUFFER_BIT);
@@ -416,7 +443,7 @@ body {
 	gl.bindTexture(gl.TEXTURE_2D, waterVelTX);
 	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
 	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-	gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, WaterBufferSize, WaterBufferSize, 0, gl.RGBA, gl.FLOAT, null);
+	gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, WaterBufferSize, WaterBufferSize, 0, gl.RGBA, floatEnum, null);
 	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
 	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
 	
@@ -427,7 +454,7 @@ body {
 	if (gl.checkFramebufferStatus(gl.FRAMEBUFFER)!=gl.FRAMEBUFFER_COMPLETE)
 	{
 	  console.error("Framebuffer Error 2");
-	  return false;
+	  framebufferError=true;
 	}
 	gl.clearColor(0.0, 0.0, 0.0, 1.0);   
         gl.clear(gl.COLOR_BUFFER_BIT);
@@ -435,6 +462,16 @@ body {
 	gl.bindFramebuffer(gl.FRAMEBUFFER, null);
 	if (gl.checkFramebufferStatus(gl.FRAMEBUFFER)!=gl.FRAMEBUFFER_COMPLETE)
 	  console.error("Framebuffer Error 3");
+	if (framebufferError)
+	{
+	    if (usingOES_texture_float && !forceHalfFloat)
+	    {
+		//We tried using full float but got framebuffer incomplete error, this happens with Firefox for Android.
+		//Try again using half float.
+		//TODO: clean up these unwanted textures and framebuffers.		
+		return initFrameBuffers(true);
+	    }else return false;		
+	}
 	return true;
     }    
     
@@ -451,8 +488,8 @@ body {
 	    {
 		meshVertices.push(i/meshSize*2-1);
 		meshVertices.push(j/meshSize*2-1);
-		meshTexCoords.push(i/meshSize*0.96+0.02);//Do not show the edges wich do not move
-		meshTexCoords.push(j/meshSize*0.96+0.02);
+		meshTexCoords.push(i/meshSize/**0.96+0.02*/);//Do not show the edges which do not move
+		meshTexCoords.push(j/meshSize/**0.96+0.02*/);
 	    }
 	}
 	for (var i=0; i<meshSize-1; i++)
@@ -1104,10 +1141,10 @@ body {
 	stats.domElement.style.top = window.innerHeight-58;
 	
 	canvas.width = window.innerWidth-20;
-	canvas.height = window.innerHeight-(topBarHeight+26);	
+	canvas.height = window.innerHeight-(topBarHeight+42);	
 	canvas.style.position = 'absolute';
 	canvas.style.left = '8px';
-	canvas.style.top = topBarHeight + 16;
+	canvas.style.top = topBarHeight + 32;
 // 	canvas.style.zIndex = '-1';
 
 	gl.viewportWidth = canvas.width;
@@ -1246,7 +1283,7 @@ body {
     <span id="shaderLabel">Phong</span></td>
     <td><button id = "wallbutton" type="button" onclick="wallButtonPressed();" style="height:40px; width:60px">Wall</button>	<br>
     <span id="wallLabel">2 Slit</span></td>    
-    <td><button id = "wallBehaviourbutton" type="button" onclick="wallBehaviourButtonPressed();" style="height:40px; width:60px">Wall Behaviour</button>	<br>
+    <td><button id = "wallBehaviourbutton" type="button" onclick="wallBehaviourButtonPressed();" style="height:40px; width:70px">Wall Behavior</button>	<br>
     <span id="wallBehaviourLabel">Hard</span></td>
     <td><button id = "dipperbutton" type="button" onclick="dipperButtonPressed();" style="height:40px; width:60px">Dipper</button><br>
     <span id="dipperLabel">On</span></td>
