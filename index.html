@@ -50,6 +50,35 @@
     {
 	  mediump vec2 currentpos = v_texcord; //Componant-wise division.
 	  mediump vec2 windowSizeR = vec2(1.0/windowSize.x, 1.0/windowSize.y);
+	  mediump vec4 r = texture2D(waterLevelTex, vec2(currentpos.x+windowSizeR.x, currentpos.y));
+	  mediump vec4 l = texture2D(waterLevelTex, vec2(currentpos.x-windowSizeR.x, currentpos.y));
+	  mediump vec4 u = texture2D(waterLevelTex, vec2(currentpos.x, currentpos.y-windowSizeR.y));
+	  mediump vec4 d = texture2D(waterLevelTex, vec2(currentpos.x, currentpos.y+windowSizeR.y));
+	  mediump vec4 t = texture2D(waterLevelTex, currentpos);
+	  if (r.b > 0.5) r=t;
+	  if (l.b > 0.5) l=t;
+	  if (u.b > 0.5) u=t;
+	  if (d.b > 0.5) d=t;
+	  mediump vec4 averageNeighbourLevel = (r + l + u + d)/4.0;
+	  mediump vec4 leveldiff=averageNeighbourLevel-t;
+	  mediump vec4 k=vec4(1,1,0,1);
+	  mediump vec4 force = leveldiff*k; //Hooke's law
+      //    gl_FragColor=vec4(0,1,0,1);
+	  gl_FragColor = force;   //Integrating on Newton2 dobe by blending.
+      //    gl_FragColor = texture2D(waterLevelTex, currentpos);
+    }
+</script>
+
+<script id="forcecalc-fs1" type="x-shader/x-fragment">
+    uniform sampler2D waterLevelTex;
+    uniform mediump vec2 windowSize;
+//     uniform mediump float time;
+//     varying mediump vec2 pos;
+    varying mediump vec2 v_texcord;
+    void main(void)
+    {
+	  mediump vec2 currentpos = v_texcord; //Componant-wise division.
+	  mediump vec2 windowSizeR = vec2(1.0/windowSize.x, 1.0/windowSize.y);
 	  mediump vec4 averageNeighbourLevel = (
 		    texture2D(waterLevelTex, vec2(currentpos.x-windowSizeR.x, currentpos.y))
 		  + texture2D(waterLevelTex, vec2(currentpos.x+windowSizeR.x, currentpos.y))
@@ -135,7 +164,7 @@
 	  mediump float cosSpecAngle = max(dot(normalWS, halfVectorWS), 0.0);      
 	  mediump vec4 surfacecolour = color + cosLightAngle * 0.4 + pow(cosSpecAngle, 50.0);
 // 	  surfacecolour.r = max(surfacecolour.r, colour.b);
-// 	  if (colour.b>.1) discard;
+	  if (colour.b>.1) discard;
           gl_FragColor = surfacecolour;
       }
 </script>
@@ -150,6 +179,7 @@
 //           gl_FragColor = vec4(sin(max(colour.r,0.0)*M_PI_2),colour.b,sin(-min(colour.r,0.0)*M_PI_2),1);
           gl_FragColor = vec4(max(colour.r,0.0)*5.0,0.0*colour.b,(-min(colour.r,0.0)*5.0),1);
 //           gl_FragColor = vec4(1.0-max(colour.r,0.0)*2.0,1.0-(-min(colour.r,0.0)*2.0),1.0-colour.b,1);
+	  if (colour.b>.1) discard;
       }
 </script>
 
@@ -347,8 +377,8 @@
 // 	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_BORDER);
 // 	var borderColour = [0.5, 0.0, 0.0, 1.0];
 // 	gl.texParameterf(gl.TEXTURE_2D, gl.TEXTURE_BORDER_COLOR, borderColour);
-// 	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-// 	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 	gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, WaterBufferSize, WaterBufferSize, 0, gl.RGBA, gl.FLOAT, null);
 	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
 	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
@@ -368,8 +398,8 @@
 
 	waterVelTX = gl.createTexture();
 	gl.bindTexture(gl.TEXTURE_2D, waterVelTX);
-// 	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-// 	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 	gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, WaterBufferSize, WaterBufferSize, 0, gl.RGBA, gl.FLOAT, null);
 	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
 	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
@@ -516,6 +546,7 @@
       var wallPos = .5;
       var gapWidth = .1;
       
+      //1 Gap Wall
       Bar1GPositionBuffer = gl.createBuffer();
       gl.bindBuffer(gl.ARRAY_BUFFER, Bar1GPositionBuffer);
       var barvertices = [
@@ -537,9 +568,9 @@
       ];
       gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(barvertices), gl.STATIC_DRAW);
       Bar1GPositionBuffer.itemSize = 2;
-      Bar1GPositionBuffer.numItems = 12;      
+      Bar1GPositionBuffer.numItems = 12;          
       
-      
+      //2 Gap Wall
       Bar2GPositionBuffer = gl.createBuffer();
       gl.bindBuffer(gl.ARRAY_BUFFER, Bar2GPositionBuffer);
       var barvertices = [
@@ -571,7 +602,7 @@
       gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(barvertices), gl.STATIC_DRAW);
       Bar2GPositionBuffer.itemSize = 2;
       Bar2GPositionBuffer.numItems = 18;      
-      
+     
       //Dipper
       DipperPositionBuffer = gl.createBuffer();
       gl.bindBuffer(gl.ARRAY_BUFFER, DipperPositionBuffer);
@@ -603,6 +634,7 @@
     var slits = 2;
     var dipper = true;
     var clearOnNextFrame = false;
+    var clearWallsOnNextFrame = false;
 
     function drawScene() {
 // 
@@ -663,7 +695,18 @@
 	    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
 	    clearOnNextFrame=false;
 	}
-        
+	
+        if(clearWallsOnNextFrame)
+        {
+	    gl.bindFramebuffer(gl.FRAMEBUFFER, waterHeightFramebuffer);
+	    gl.clearColor(0.0, 0.0, 0.0, 0.0);
+	    gl.colorMask(false, false, true, false);
+	    gl.clear(gl.COLOR_BUFFER_BIT);
+	    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+	    gl.colorMask(true, true, true, true);
+	    clearWallsOnNextFrame=false;
+	}
+	
         if (running)
         {
 	    //Calc water velocity:	
@@ -710,10 +753,11 @@
 	gl.disable(gl.BLEND);	
         gl.useProgram(wallShaderProgram);
         gl.uniform4f(wallShaderProgram.colourUniform, 0,0,1,0);
-	gl.enableVertexAttribArray(wallShaderProgram.vertexAttribute);	
-        gl.bindBuffer(gl.ARRAY_BUFFER, WallPositionBuffer);
-        gl.vertexAttribPointer(wallShaderProgram.vertexAttribute, WallPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
-	gl.drawArrays(gl.LINES, 0, WallPositionBuffer.numItems);
+        //Outer Walls
+// 	gl.enableVertexAttribArray(wallShaderProgram.vertexAttribute);	
+//         gl.bindBuffer(gl.ARRAY_BUFFER, WallPositionBuffer);
+//         gl.vertexAttribPointer(wallShaderProgram.vertexAttribute, WallPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
+// 	gl.drawArrays(gl.LINES, 0, WallPositionBuffer.numItems);
 	if (slits==1)
 	{
 	    gl.bindBuffer(gl.ARRAY_BUFFER, Bar1GPositionBuffer);
@@ -728,7 +772,7 @@
 	if (dipper)
 	{
 	    gl.bindBuffer(gl.ARRAY_BUFFER, DipperPositionBuffer);        
-	    gl.uniform4f(wallShaderProgram.colourUniform, Math.sin(frameNumber/10)*.5,0,1,0);
+	    gl.uniform4f(wallShaderProgram.colourUniform, Math.sin(frameNumber/10)*.5,0,0,0);
 	    gl.vertexAttribPointer(wallShaderProgram.vertexAttribute, DipperPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
 	    gl.drawArrays(gl.LINES, 0, DipperPositionBuffer.numItems);
 	}
@@ -1106,6 +1150,7 @@
 	    slits=0;	    
 	    wallLabel.innerHTML="No wall";
 	}
+	clearWallsOnNextFrame=true;
     }
     
     function dipperButtonPressed()
@@ -1115,6 +1160,7 @@
 	    dipperLabel.innerHTML="On";
 	else
 	    dipperLabel.innerHTML="Off";
+	clearWallsOnNextFrame=true;
     }
         
     function clearButtonPressed()
