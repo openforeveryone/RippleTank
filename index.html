@@ -50,7 +50,7 @@ body {
     }
 </script>
 
-<script id="forcecalc-fs" type="x-shader/x-fragment">
+<script id="forcecalc1-fs" type="x-shader/x-fragment">
     uniform sampler2D waterLevelTex;
     uniform mediump vec2 windowSize;
 //     uniform mediump float time;
@@ -79,7 +79,7 @@ body {
     }
 </script>
 
-<script id="forcecalc-fs1" type="x-shader/x-fragment">
+<script id="forcecalc-fs" type="x-shader/x-fragment">
     uniform sampler2D waterLevelTex;
     uniform mediump vec2 windowSize;
 //     uniform mediump float time;
@@ -314,6 +314,7 @@ body {
         var dropFragmentShader = getShader(gl, "drop-fs");
         var dropVertexShader = getShader(gl, "drop-vs");
         var forcecalcFragmentShader = getShader(gl, "forcecalc-fs");
+        var forcecalc1FragmentShader = getShader(gl, "forcecalc1-fs");
         var forcecalcVertexShader = getShader(gl, "forcecalc-vs");
         var integrateFragmentShader = getShader(gl, "integrate-fs");
         var integrateVertexShader = getShader(gl, "integrate-vs");
@@ -325,6 +326,7 @@ body {
 
 	dropShaderProgram = getShaderProgram(gl, dropFragmentShader, dropVertexShader);
 	forcecalcShaderProgram = getShaderProgram(gl, forcecalcFragmentShader, forcecalcVertexShader);
+	forcecalc1ShaderProgram = getShaderProgram(gl, forcecalc1FragmentShader, forcecalcVertexShader);
 	integrateShaderProgram = getShaderProgram(gl, integrateFragmentShader, integrateVertexShader);
 	renderShaderProgram = getShaderProgram(gl, renderFragmentShader, renderVertexShader);
 	render1ShaderProgram = getShaderProgram(gl, render1FragmentShader, renderVertexShader);
@@ -339,8 +341,12 @@ body {
         gl.useProgram(forcecalcShaderProgram);
         forcecalcShaderProgram.vertexAttribute = gl.getAttribLocation(forcecalcShaderProgram, "vertex");
         forcecalcShaderProgram.texcoordAttribute = gl.getAttribLocation(forcecalcShaderProgram, "texcord");
-        forcecalcShaderProgram.windowSizeUniform = gl.getUniformLocation(forcecalcShaderProgram, "windowSize");
-        forcecalcShaderProgram.timeUniform = gl.getUniformLocation(forcecalcShaderProgram, "time");
+        forcecalcShaderProgram.windowSizeUniform = gl.getUniformLocation(forcecalcShaderProgram, "windowSize");        
+                
+        gl.useProgram(forcecalc1ShaderProgram);
+        forcecalc1ShaderProgram.vertexAttribute = gl.getAttribLocation(forcecalc1ShaderProgram, "vertex");
+        forcecalc1ShaderProgram.texcoordAttribute = gl.getAttribLocation(forcecalc1ShaderProgram, "texcord");
+        forcecalc1ShaderProgram.windowSizeUniform = gl.getUniformLocation(forcecalc1ShaderProgram, "windowSize");
         
         gl.useProgram(integrateShaderProgram);
         integrateShaderProgram.vertexAttribute = gl.getAttribLocation(integrateShaderProgram, "vertex");
@@ -645,6 +651,7 @@ body {
     var dipper = true;
     var clearOnNextFrame = false;
     var clearWallsOnNextFrame = false;
+    var softReflections = false;
 
     function drawScene() {
 // 
@@ -728,14 +735,20 @@ body {
 	    gl.viewport(0, 0, WaterBufferSize, WaterBufferSize);
     //         gl.clearColor(1.0, 1.0, 0.0, 1.0);
     //         gl.clear(gl.COLOR_BUFFER_BIT); 
-	    gl.useProgram(forcecalcShaderProgram);
-	    gl.enableVertexAttribArray(forcecalcShaderProgram.vertexAttribute);
-	    gl.enableVertexAttribArray(forcecalcShaderProgram.texcoordAttribute);
+    
+	    var fcShader;
+	    if (softReflections)
+		fcShader=forcecalc1ShaderProgram;
+	    else
+		fcShader=forcecalcShaderProgram;	
+	    gl.useProgram(fcShader);		
+	    gl.enableVertexAttribArray(fcShader.vertexAttribute);
+	    gl.enableVertexAttribArray(fcShader.texcoordAttribute);
 	    gl.bindBuffer(gl.ARRAY_BUFFER, VertexPositionBuffer);
-	    gl.vertexAttribPointer(forcecalcShaderProgram.vertexAttribute, VertexPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
+	    gl.vertexAttribPointer(fcShader.vertexAttribute, VertexPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
 	    gl.bindBuffer(gl.ARRAY_BUFFER, TexCoordPositionBuffer);
-	    gl.vertexAttribPointer(forcecalcShaderProgram.texcoordAttribute, TexCoordPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
-	    gl.uniform2f(forcecalcShaderProgram.windowSizeUniform, WaterBufferSize, WaterBufferSize);
+	    gl.vertexAttribPointer(fcShader.texcoordAttribute, TexCoordPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
+	    gl.uniform2f(fcShader.windowSizeUniform, WaterBufferSize, WaterBufferSize);
 	    gl.enable(gl.BLEND);
 	    gl.blendEquation(gl.FUNC_ADD);
 	    gl.blendFunc(gl.ONE,gl.ONE);
@@ -761,13 +774,17 @@ body {
 	//Reset areas that are walls:
 	gl.bindTexture(gl.TEXTURE_2D, null);
 	gl.disable(gl.BLEND);	
-        gl.useProgram(wallShaderProgram);
-        gl.uniform4f(wallShaderProgram.colourUniform, 0,0,1,0);
+	gl.useProgram(wallShaderProgram);
+        gl.uniform4f(wallShaderProgram.colourUniform, 0,0,1,0);        
         //Outer Walls
-// 	gl.enableVertexAttribArray(wallShaderProgram.vertexAttribute);	
-//         gl.bindBuffer(gl.ARRAY_BUFFER, WallPositionBuffer);
-//         gl.vertexAttribPointer(wallShaderProgram.vertexAttribute, WallPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
-// 	gl.drawArrays(gl.LINES, 0, WallPositionBuffer.numItems);
+        if (!softReflections)
+        {
+	    gl.enableVertexAttribArray(wallShaderProgram.vertexAttribute);	
+	    gl.bindBuffer(gl.ARRAY_BUFFER, WallPositionBuffer);
+	    gl.vertexAttribPointer(wallShaderProgram.vertexAttribute, WallPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
+	    gl.drawArrays(gl.LINES, 0, WallPositionBuffer.numItems);
+	} //Soft reflections on outer wall handled by CLAMP_TO_EDGE.
+	
 	if (slits==1)
 	{
 	    gl.bindBuffer(gl.ARRAY_BUFFER, Bar1GPositionBuffer);
@@ -1162,6 +1179,15 @@ body {
 	}
 	clearWallsOnNextFrame=true;
     }
+                
+    function wallBehaviourButtonPressed()
+    { 	
+	softReflections=!softReflections;
+	if (softReflections)
+	    wallBehaviourLabel.innerHTML="Soft";
+	else
+	    wallBehaviourLabel.innerHTML="Hard";	
+    }
     
     function dipperButtonPressed()
     { 	
@@ -1170,7 +1196,6 @@ body {
 	    dipperLabel.innerHTML="On";
 	else
 	    dipperLabel.innerHTML="Off";
-	clearWallsOnNextFrame=true;
     }
         
     function clearButtonPressed()
@@ -1220,7 +1245,9 @@ body {
     <td><button id = "shadingbutton" type="button" onclick="shadingButtonPressed();" style="height:40px; width:60px">Shader</button><br>
     <span id="shaderLabel">Phong</span></td>
     <td><button id = "wallbutton" type="button" onclick="wallButtonPressed();" style="height:40px; width:60px">Wall</button>	<br>
-    <span id="wallLabel">2 Slit</span></td>
+    <span id="wallLabel">2 Slit</span></td>    
+    <td><button id = "wallBehaviourbutton" type="button" onclick="wallBehaviourButtonPressed();" style="height:40px; width:60px">Wall Behaviour</button>	<br>
+    <span id="wallBehaviourLabel">Hard</span></td>
     <td><button id = "dipperbutton" type="button" onclick="dipperButtonPressed();" style="height:40px; width:60px">Dipper</button><br>
     <span id="dipperLabel">On</span></td>
     </tr></table>
