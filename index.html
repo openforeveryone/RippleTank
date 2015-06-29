@@ -517,6 +517,10 @@ body {
     var Bar1GPositionBuffer;
     var Bar2GPositionBuffer;
     var DropPositionBuffer;
+   
+    var gapDistance = .4;
+    var wallPos = .5;
+    var gapWidth = .1;
     
     function initBuffers() {    
       VertexPositionBuffer = gl.createBuffer();
@@ -594,68 +598,7 @@ body {
       gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(wallvertices), gl.STATIC_DRAW);
       WallPositionBuffer.itemSize = 2;
       WallPositionBuffer.numItems = 8;      
-      
-      var gapDistance = .4;
-      var wallPos = .5;
-      var gapWidth = .1;
-      
-      //1 Gap Wall
-      Bar1GPositionBuffer = gl.createBuffer();
-      gl.bindBuffer(gl.ARRAY_BUFFER, Bar1GPositionBuffer);
-      var barvertices = [
-	  wallPos+-.025, 1,
-	  wallPos+-.025, gapWidth/2,
-	  wallPos+.025, gapWidth/2,
-
-	  wallPos+.025, 1,
-	  wallPos+.025, gapWidth/2,
-	  wallPos+-.025, 1,
-	  
-	  wallPos+-.025, -1,
-	  wallPos+-.025, -gapWidth/2,
-	  wallPos+.025, -gapWidth/2,
-
-	  wallPos+.025, -1,
-	  wallPos+.025, -gapWidth/2,
-	  wallPos+-.025, -1
-      ];
-      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(barvertices), gl.STATIC_DRAW);
-      Bar1GPositionBuffer.itemSize = 2;
-      Bar1GPositionBuffer.numItems = 12;          
-      
-      //2 Gap Wall
-      Bar2GPositionBuffer = gl.createBuffer();
-      gl.bindBuffer(gl.ARRAY_BUFFER, Bar2GPositionBuffer);
-      var barvertices = [
-	  //Top
-	  wallPos+-.025, 1,
-	  wallPos+-.025, gapDistance+(gapWidth/2),
-	  wallPos+.025, gapDistance+(gapWidth/2),
-
-	  wallPos+.025, 1,
-	  wallPos+.025, gapDistance+(gapWidth/2),
-	  wallPos+-.025, 1,
-	  //Centre
-	  wallPos+-.025, -(gapDistance-(gapWidth/2)),
-	  wallPos+-.025, gapDistance-(gapWidth/2),
-	  wallPos+.025, gapDistance-(gapWidth/2),
-
-	  wallPos+.025, -(gapDistance-(gapWidth/2)),
-	  wallPos+.025, gapDistance-(gapWidth/2),
-	  wallPos+-.025, -(gapDistance-(gapWidth/2)),
-	  //Bottom
-	  wallPos+-.025, -1,
-	  wallPos+-.025, -(gapDistance+(gapWidth/2)),
-	  wallPos+.025, -(gapDistance+(gapWidth/2)),
-
-	  wallPos+.025, -1,
-	  wallPos+.025, -(gapDistance+(gapWidth/2)),
-	  wallPos+-.025, -1
-      ];
-      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(barvertices), gl.STATIC_DRAW);
-      Bar2GPositionBuffer.itemSize = 2;
-      Bar2GPositionBuffer.numItems = 18;      
-     
+                  
       //Dipper
       DipperPositionBuffer = gl.createBuffer();
       gl.bindBuffer(gl.ARRAY_BUFFER, DipperPositionBuffer);
@@ -668,8 +611,68 @@ body {
       DipperPositionBuffer.numItems = 2;  
       
       DropPositionBuffer = gl.createBuffer();
+      Bar1GPositionBuffer = gl.createBuffer();      
+      Bar2GPositionBuffer = gl.createBuffer();
+      initWallBuffers();      
       return true;
     }
+    
+    function initWallBuffers() {    
+	      //1 Gap Wall
+	  gl.bindBuffer(gl.ARRAY_BUFFER, Bar1GPositionBuffer);
+	  var barvertices = [
+	      wallPos+-.025, 1,
+	      wallPos+-.025, gapWidth/2,
+	      wallPos+.025, gapWidth/2,
+
+	      wallPos+.025, 1,
+	      wallPos+.025, gapWidth/2,
+	      wallPos+-.025, 1,
+	      
+	      wallPos+-.025, -1,
+	      wallPos+-.025, -gapWidth/2,
+	      wallPos+.025, -gapWidth/2,
+
+	      wallPos+.025, -1,
+	      wallPos+.025, -gapWidth/2,
+	      wallPos+-.025, -1
+	  ];
+	  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(barvertices), gl.DYNAMIC_DRAW);
+	  Bar1GPositionBuffer.itemSize = 2;
+	  Bar1GPositionBuffer.numItems = 12;          
+	  
+	  //2 Gap Wall
+	  gl.bindBuffer(gl.ARRAY_BUFFER, Bar2GPositionBuffer);
+	  var barvertices = [
+	      //Top
+	      wallPos+-.025, 1,
+	      wallPos+-.025, gapDistance+(gapWidth/2),
+	      wallPos+.025, gapDistance+(gapWidth/2),
+
+	      wallPos+.025, 1,
+	      wallPos+.025, gapDistance+(gapWidth/2),
+	      wallPos+-.025, 1,
+	      //Centre
+	      wallPos+-.025, -(gapDistance-(gapWidth/2)),
+	      wallPos+-.025, gapDistance-(gapWidth/2),
+	      wallPos+.025, gapDistance-(gapWidth/2),
+
+	      wallPos+.025, -(gapDistance-(gapWidth/2)),
+	      wallPos+.025, gapDistance-(gapWidth/2),
+	      wallPos+-.025, -(gapDistance-(gapWidth/2)),
+	      //Bottom
+	      wallPos+-.025, -1,
+	      wallPos+-.025, -(gapDistance+(gapWidth/2)),
+	      wallPos+.025, -(gapDistance+(gapWidth/2)),
+
+	      wallPos+.025, -1,
+	      wallPos+.025, -(gapDistance+(gapWidth/2)),
+	      wallPos+-.025, -1
+	  ];
+	  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(barvertices), gl.DYNAMIC_DRAW);
+	  Bar2GPositionBuffer.itemSize = 2;
+	  Bar2GPositionBuffer.numItems = 18;
+      }
     
     var mvpMatrix;
     var frameNumber=0;
@@ -1025,6 +1028,8 @@ body {
 		rotX=mouseDragStart.rotX+(y-mouseDragStart.y)/300;
 // 		console.log("Touch Dragging " + x + " " + y + " " + angle + " startzoom:" +mouseDragStart.zoom + " zoom:" +zoom+ " " + distance+ " " + mouseDragStart.distance);
 	    }
+// 	    console.log("event.preventDefault()");
+	    event.preventDefault();
         }); 
         
         canvas.addEventListener('touchend', function(event) {        
@@ -1234,7 +1239,31 @@ body {
 	else
 	    dipperLabel.innerHTML="Off";
     }
-        
+    
+    function gapWidthPressed(ds)
+    { 	
+	gapWidth+=(ds*0.05);
+	gapWidthLabel.innerHTML=gapWidth.toFixed(2);
+	initWallBuffers();
+	clearWallsOnNextFrame=true;
+    }
+       
+    function gapWidthPressed(ds)
+    { 	
+	gapWidth+=(ds*0.05);
+	gapWidthLabel.innerHTML=gapWidth.toFixed(2);
+	initWallBuffers();
+	clearWallsOnNextFrame=true;
+    }
+    
+    function gapDistancePressed(ds)
+    {
+	gapDistance+=(ds*0.05);
+	gapDistanceLabel.innerHTML=gapDistance.toFixed(2);
+	initWallBuffers();
+	clearWallsOnNextFrame=true;
+    }
+    
     function clearButtonPressed()
     {
 	clearOnNextFrame=true;
@@ -1272,10 +1301,11 @@ body {
 	For my full CV please contact me.
 	on <a href="tel:+441212888633">+44(0)1212888633</a><br>
     </div>-->
-    <table><tr  align=center>
+    <div id="table-scroll" style="overflow:auto;height:70">
+    <table  style="height:70" align=center><tr  align=center>
     <td><button id = "runButton" type="button" onclick="runButtonPressed();" style="height:60px; width:60px">Pause</button></td>
     <td><button id = "clearButton" type="button" onclick="clearButtonPressed();" style="height:60px; width:60px">Clear</button>
-    <td ><button id = "projectionButton" type="button" onclick="projectionButtonPressed();" style="height:40px; width:60px">2D/3D</button> <br>
+    <td><button id = "projectionButton" type="button" onclick="projectionButtonPressed();" style="height:40px; width:60px">2D/3D</button> <br>
     <span id="projectionLabel">2D</span></td>
     <td><button id = "renderbutton" type="button" onclick="renderButtonPressed();" style="height:40px; width:60px">Render Style</button><br>
     <span id="renderLabel">Solid</span></td>
@@ -1283,11 +1313,28 @@ body {
     <span id="shaderLabel">Phong</span></td>
     <td><button id = "wallbutton" type="button" onclick="wallButtonPressed();" style="height:40px; width:60px">Wall</button>	<br>
     <span id="wallLabel">2 Slit</span></td>    
-    <td><button id = "wallBehaviourbutton" type="button" onclick="wallBehaviourButtonPressed();" style="height:40px; width:70px">Wall Behavior</button>	<br>
+    <td><button id = "wallBehaviourbutton" type="button" onclick="wallBehaviourButtonPressed();" style="height:40px; width:70px">Wall Behaviour</button><br>
     <span id="wallBehaviourLabel">Hard</span></td>
     <td><button id = "dipperbutton" type="button" onclick="dipperButtonPressed();" style="height:40px; width:60px">Dipper</button><br>
-    <span id="dipperLabel">On</span></td>
+    <span id="dipperLabel">On</span></td>   
+    
+    <td id="gapWidthControls">
+    <span  style="white-space: nowrap;">Gap Width</span><br>
+    <span  style="white-space: nowrap;">
+    <button id = "gapWidthUp" type="button" onclick="gapWidthPressed(1);" style="height:20px; width:30px">+</button>
+    <button id = "gapWidthDn" type="button" onclick="gapWidthPressed(-1);" style="height:20px; width:30px">-</button>
+    </span><br>
+    <span id="gapWidthLabel">.1</span>
+    </td>
+    
+    <td  id="gapDistanceControls">
+    Gap Dist<br>
+    <span  style="white-space: nowrap;"><button id = "gapDistanceUp" type="button" onclick="gapDistancePressed(1);" style="height:20px; width:30px">+</button>
+    <button id = "gapDistanceDn" type="button" onclick="gapDistancePressed(-1);" style="height:20px; width:30px">-</button></span>
+    <br>
+    <span id="gapDistanceLabel">.4</span></td>
     </tr></table>
+    <div>
     <canvas id="water-canvas" style="border: none;" width="512" height="512"></canvas>    
 </body>
 </html>
