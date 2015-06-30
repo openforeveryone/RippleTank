@@ -486,10 +486,10 @@ body {
 	{	
 	    for (var j=0; j<meshSize; j++)
 	    {
-		meshVertices.push(i/meshSize*2-1);
-		meshVertices.push(j/meshSize*2-1);
-		meshTexCoords.push(i/meshSize/**0.96+0.02*/);//Do not show the edges which do not move
-		meshTexCoords.push(j/meshSize/**0.96+0.02*/);
+		meshVertices.push(i/(meshSize-1)*2-1);
+		meshVertices.push(j/(meshSize-1)*2-1);
+		meshTexCoords.push(i/(meshSize-1)/**0.96+0.02*/);//Do not show the edges which do not move
+		meshTexCoords.push(j/(meshSize-1)/**0.96+0.02*/);
 	    }
 	}
 	for (var i=0; i<meshSize-1; i++)
@@ -583,7 +583,7 @@ body {
 // 	  -1, 1,
 //       ];
       
-      var a = 1 - 1/256;
+      var a = 1 - 1/512;
       var wallvertices = [
 	  -a, a,
 	  -a, -a,
