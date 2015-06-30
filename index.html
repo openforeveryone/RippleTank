@@ -697,7 +697,7 @@ body {
 // 
 // //         mat4.perspective(45, gl.viewportWidth / gl.viewportHeight, 0.1, 100.0, pMatrix);
 // 
-        
+        frameInQueue = false;
 	gl.disable(gl.DEPTH_TEST);
 	gl.disable(gl.CULL_FACE);
 	if (running)
@@ -851,15 +851,22 @@ body {
         gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
         gl.clearColor(0.0, 0.0, 0.0, 0.0);
         gl.clear(gl.COLOR_BUFFER_BIT);
+        gl.clear(gl.DEPTH_BUFFER_BIT);
         
 	gl.bindTexture(gl.TEXTURE_2D, waterHeightTX);
     
 	mvpMatrix = mat4.create();
         
 	if (render3D && rotateProgress < 1) 
+	{
 	    rotateProgress+=1.0/60.0;
+	    requestFrame();
+	}
 	else if (!render3D && rotateProgress > 0)
+	{
 	    rotateProgress-=1.0/60.0;
+	    requestFrame();
+	}
 
 	var pMatrix = mat4.create();
 
@@ -958,9 +965,19 @@ body {
 	stats.begin();
 	drawScene();
 	stats.end();
-	requestAnimationFrame( renderLoop );
+	if (running)
+	    requestFrame();
     }
 
+    //Call requestAnimationFrame() once per frame (not strictly necessary):
+    var frameInQueue = false;
+    function requestFrame() 
+    {  
+	if (frameInQueue)
+	    return;
+	frameInQueue=true;
+	requestAnimationFrame( renderLoop );
+    }
     
 //     function test(canvas1)
 //     {    
@@ -1027,6 +1044,7 @@ body {
 		rotZ=mouseDragStart.rotZ-(angle-mouseDragStart.angle);
 		rotX=mouseDragStart.rotX+(y-mouseDragStart.y)/300;
 // 		console.log("Touch Dragging " + x + " " + y + " " + angle + " startzoom:" +mouseDragStart.zoom + " zoom:" +zoom+ " " + distance+ " " + mouseDragStart.distance);
+		requestFrame();
 	    }
 // 	    console.log("event.preventDefault()");
 	    event.preventDefault();
@@ -1048,7 +1066,8 @@ body {
 	    zoom-=event.deltaY/500;
 	    rotZ+=event.deltaX/500;
 	    zoom=Math.max(zoom, 0.5);
-	    zoom=Math.min(zoom, 2.0);		
+	    zoom=Math.min(zoom, 2.0);
+	    requestFrame();
         }); 
         
         canvas.addEventListener('mousedown', function(event) {
@@ -1089,7 +1108,9 @@ body {
 		    }
 		    
 		    drop = [point[0]/point[3],point[1]/point[3]];
-		    newDrops.push(drop);    
+		    newDrops.push(drop);
+
+		    requestFrame();
 		}
             break;            
 	    case 3:
@@ -1108,6 +1129,7 @@ body {
 		case 1:
 		    rotZ=mouseDragStart.rotZ+(x-mouseDragStart.x)/300;
 		    rotX=mouseDragStart.rotX+(y-mouseDragStart.y)/300;
+		    requestFrame();
 		}
 	    }
         });
@@ -1135,7 +1157,7 @@ body {
 	    newDrops.push(drop);
         }
 
-	requestAnimationFrame( renderLoop );
+	requestFrame();
     }	   
         
     function layout() {
@@ -1159,14 +1181,18 @@ body {
 // 	rotateButton.style.position = 'absolute';
 // 	rotateButton.style.left = '100px';
 // 	rotateButton.style.top = '8px';
+	requestFrame();
     }
     
     function runButtonPressed() {
 	running=!running;
 	if (running)
-	  runButton.innerHTML="Pause";
+	{
+	    runButton.innerHTML="Pause";
+	    requestFrame();
+	}
 	else
-	  runButton.innerHTML="Run";	  
+	    runButton.innerHTML="Run";	
     }
     
     function renderButtonPressed(){
@@ -1186,6 +1212,7 @@ body {
 	    renderStyle="Grid"
 	    renderLabel.innerHTML="Grid";	  	    
 	}
+	requestFrame();
     }
     
     function projectionButtonPressed()
@@ -1196,6 +1223,7 @@ body {
 	else
 	    projectionLabel.innerHTML="2D";
 	rotateAnim=true;
+	requestFrame();
     }    
     
     function shadingButtonPressed()
@@ -1205,6 +1233,7 @@ body {
 	    shaderLabel.innerHTML="Phong";
 	else
 	    shaderLabel.innerHTML="Height";
+	requestFrame();
     }
             
     function wallButtonPressed()
@@ -1220,6 +1249,7 @@ body {
 	    wallLabel.innerHTML="No wall";
 	}
 	clearWallsOnNextFrame=true;
+	requestFrame();
     }
                 
     function wallBehaviourButtonPressed()
@@ -1246,6 +1276,7 @@ body {
 	gapWidthLabel.innerHTML=gapWidth.toFixed(2);
 	initWallBuffers();
 	clearWallsOnNextFrame=true;
+	requestFrame();
     }
        
     function gapWidthPressed(ds)
@@ -1254,6 +1285,7 @@ body {
 	gapWidthLabel.innerHTML=gapWidth.toFixed(2);
 	initWallBuffers();
 	clearWallsOnNextFrame=true;
+	requestFrame();
     }
     
     function gapDistancePressed(ds)
@@ -1262,11 +1294,13 @@ body {
 	gapDistanceLabel.innerHTML=gapDistance.toFixed(2);
 	initWallBuffers();
 	clearWallsOnNextFrame=true;
+	requestFrame();
     }
     
     function clearButtonPressed()
     {
 	clearOnNextFrame=true;
+	requestFrame();
     }
 </script>
 </head>
