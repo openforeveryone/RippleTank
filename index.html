@@ -219,7 +219,29 @@ body {
       attribute highp vec4 vertex;   
       void main(void)
       {	  
+	  gl_PointSize = 1.0;
 	  gl_Position = vertex;
+      }
+</script>
+
+<script id="dipper-fs" type="x-shader/x-fragment">
+      varying highp float height;
+      void main(void)
+      {
+	  gl_FragColor = vec4(height,0,1,0);
+      }
+</script>
+
+<script id="dipper-vs" type="x-shader/x-vertex">
+      uniform mediump float frameNumber;
+      attribute highp vec2 vertex;  //PosX, PosY
+      attribute highp vec3 props;   //Phase, Frequency, Amplitude
+      varying highp float height;
+      void main(void)
+      {	  
+	  gl_PointSize = 1.0;
+	  height = sin(props.y*frameNumber + props.x)*props.z;
+	  gl_Position = vec4(vertex.x, vertex.y ,0,1);
       }
 </script>
 
@@ -329,6 +351,8 @@ body {
         var renderVertexShader = getShader(gl, "render-vs");
         var wallFragmentShader = getShader(gl, "wall-fs");
         var wallVertexShader = getShader(gl, "wall-vs");
+        var dipperFragmentShader = getShader(gl, "dipper-fs");
+        var dipperVertexShader = getShader(gl, "dipper-vs");
 
 	dropShaderProgram = getShaderProgram(gl, dropFragmentShader, dropVertexShader);
 	forcecalcShaderProgram = getShaderProgram(gl, forcecalcFragmentShader, forcecalcVertexShader);
@@ -337,6 +361,7 @@ body {
 	renderShaderProgram = getShaderProgram(gl, renderFragmentShader, renderVertexShader);
 	render1ShaderProgram = getShaderProgram(gl, render1FragmentShader, renderVertexShader);
 	wallShaderProgram = getShaderProgram(gl, wallFragmentShader, wallVertexShader);
+	dipperShaderProgram = getShaderProgram(gl, dipperFragmentShader, dipperVertexShader);
 
         gl.useProgram(dropShaderProgram);
         dropShaderProgram.vertexAttribute = gl.getAttribLocation(dropShaderProgram, "vertex");
@@ -373,6 +398,12 @@ body {
         gl.useProgram(wallShaderProgram); 
         wallShaderProgram.colourUniform = gl.getUniformLocation(wallShaderProgram, "colour");
         wallShaderProgram.vertexAttribute = gl.getAttribLocation(wallShaderProgram, "vertex");
+        
+        gl.useProgram(dipperShaderProgram); 
+        dipperShaderProgram.frameNumberUniform = gl.getUniformLocation(dipperShaderProgram, "frameNumber");
+        dipperShaderProgram.vertexAttribute = gl.getAttribLocation(dipperShaderProgram, "vertex");
+        dipperShaderProgram.propsAttribute = gl.getAttribLocation(dipperShaderProgram, "props");
+        
         return true;
     }
     
@@ -609,8 +640,10 @@ body {
       gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(dippervertices), gl.STATIC_DRAW);
       DipperPositionBuffer.itemSize = 2;
       DipperPositionBuffer.numItems = 2;  
-      
+
       DropPositionBuffer = gl.createBuffer();
+      PointDipperPositionBuffer = gl.createBuffer(); 
+      PointDipperPropsBuffer = gl.createBuffer(); 
       Bar1GPositionBuffer = gl.createBuffer();      
       Bar2GPositionBuffer = gl.createBuffer();
       initWallBuffers();      
@@ -692,6 +725,9 @@ body {
     var clearOnNextFrame = false;
     var clearWallsOnNextFrame = false;
     var softReflections = false;
+    var pointDippers = [];
+    var pointDippersChanged = false;    
+    var pointDipperMode = 0;
 
     function drawScene() {
 // 
@@ -702,11 +738,6 @@ body {
 	gl.disable(gl.CULL_FACE);
 	if (running)
 	  frameNumber++;      
-        //Add a new drop 200 frames in:
-        if (frameNumber==200)
-        {
-	  newDrops = [[-0.5,-0.5]];
-	}
 	//Add the drops that are in the queue to the framebuffer:
         if (newDrops.length)
         {        
@@ -717,9 +748,9 @@ body {
 	    gl.useProgram(dropShaderProgram);
 	    gl.uniform2f(dropShaderProgram.windowSizeUniform, WaterBufferSize, WaterBufferSize);
 	    gl.uniform1f(dropShaderProgram.radiusUniform, DropSize/2.0);
-	    if (frameNumber==1)
-		gl.uniform4f(dropShaderProgram.channelMaskUniform, 0,1,0,0);
-	    else
+// 	    if (frameNumber==1)
+// 		gl.uniform4f(dropShaderProgram.channelMaskUniform, 0,1,0,0);
+// 	    else
 		gl.uniform4f(dropShaderProgram.channelMaskUniform, 1,0,0,0);
 	    //Add drops
 	    var posArray = [];
@@ -736,6 +767,7 @@ body {
 	    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(posArray), gl.DYNAMIC_DRAW);	    
 	    gl.vertexAttribPointer(dropShaderProgram.vertexAttribute, 2, gl.FLOAT, false, 0, 0);
 	    checkError();
+
 	    gl.drawArrays(gl.POINTS, 0, newDrops.length);
 	    checkError();
 	    newDrops = [];
@@ -843,7 +875,47 @@ body {
 	    gl.vertexAttribPointer(wallShaderProgram.vertexAttribute, DipperPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
 	    gl.drawArrays(gl.LINES, 0, DipperPositionBuffer.numItems);
 	}
-	
+	if(pointDippersChanged && pointDippers.length)
+	{
+	    gl.bindBuffer(gl.ARRAY_BUFFER, PointDipperPositionBuffer);
+	    var posArray = [];
+	    for(var drop =0; drop < pointDippers.length; drop++)
+	    {
+		  posArray[drop*2+0]=pointDippers[drop][0];
+		  posArray[drop*2+1]=pointDippers[drop][1];
+	    }
+	    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(posArray), gl.DYNAMIC_DRAW);
+	    
+	    gl.bindBuffer(gl.ARRAY_BUFFER, PointDipperPropsBuffer);
+// 	    var posArray1 = [];
+	    for(var drop =0; drop < pointDippers.length; drop++)
+	    {
+		  posArray[drop*3+0]=pointDippers[drop][2];
+		  posArray[drop*3+1]=pointDippers[drop][3];
+		  posArray[drop*3+2]=pointDippers[drop][4];
+	    }
+	    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(posArray), gl.DYNAMIC_DRAW);
+	    
+	    PointDipperPositionBuffer.numItems = pointDippers.length;
+	    pointDippersChanged=false;
+	}	
+	if (pointDipperMode==5){
+	    pointDippers=[];
+	    pointDipper = [Math.sin(frameNumber/1000)*0.5, Math.cos(frameNumber/1000)*0.5, 0, 1, 1];
+	    pointDippers.push(pointDipper);
+	    pointDippersChanged=true;
+	    clearWallsOnNextFrame=true;
+	}	
+	if (pointDippers.length)
+	{
+            gl.useProgram(dipperShaderProgram);
+	    gl.uniform1f(dipperShaderProgram.frameNumberUniform, frameNumber/10);
+	    gl.bindBuffer(gl.ARRAY_BUFFER, PointDipperPositionBuffer);        
+	    gl.vertexAttribPointer(dipperShaderProgram.vertexAttribute, 2, gl.FLOAT, false, 0, 0);
+	    gl.bindBuffer(gl.ARRAY_BUFFER, PointDipperPropsBuffer);        
+	    gl.vertexAttribPointer(dipperShaderProgram.propsAttribute, 3, gl.FLOAT, false, 0, 0);
+	    gl.drawArrays(gl.POINTS, 0, PointDipperPositionBuffer.numItems);
+	}
         
         //Render to screen
 	gl.bindFramebuffer(gl.FRAMEBUFFER, null);   
@@ -958,6 +1030,8 @@ body {
 //         setMatrixUniforms();
 //         gl.drawArrays(gl.TRIANGLE_STRIP, 0, squareVertexPositionBuffer.numItems);
     }
+    
+    
     var stats;
     
     function renderLoop()
@@ -1148,14 +1222,6 @@ body {
 		}
 	    }
         });
-        
-        for (var i = 0; i < 20; i++)
-        {
-	    x = (Math.random() - 0.5) * 2;
-	    y = -(Math.random() - 0.5) * 2;
-	    drop = [x,y];
-	    newDrops.push(drop);
-        }
 
 	requestFrame();
     }	   
@@ -1270,15 +1336,59 @@ body {
 	    dipperLabel.innerHTML="Off";
     }
     
-    function gapWidthPressed(ds)
+    function pointDipperButtonPressed()
     { 	
-	gapWidth+=(ds*0.05);
-	gapWidthLabel.innerHTML=gapWidth.toFixed(2);
-	initWallBuffers();
-	clearWallsOnNextFrame=true;
-	requestFrame();
+	pointDipperMode++;
+	if(pointDipperMode==1)
+	    pointDipperLabel.innerHTML="Single";
+	else if(pointDipperMode==2)
+	    pointDipperLabel.innerHTML="2 In Phase";
+	else if(pointDipperMode==3)
+	    pointDipperLabel.innerHTML="2 Antiphase";
+	else
+	{
+	    pointDipperMode=0;
+	    pointDipperLabel.innerHTML="Off";
+	}	
+	updatePointDippers();
     }
-       
+    
+    pointDistance = 1;
+    
+    function updatePointDippers()
+    {
+	pointDippers=[];
+	if (pointDipperMode==1)
+	{
+	    pointDipper = [0, 0, 0, 1, 1]; //X, Y, Phase, Frequency, Amplitude
+	    pointDippers.push(pointDipper);
+	}else if(pointDipperMode==2)
+	{
+	    pointDipper = [0, pointDistance/2, 0, 1, 1]; //X, Y, Phase, Frequency, Amplitude
+	    pointDippers.push(pointDipper);
+	    pointDipper = [0, -pointDistance/2, 0, 1, 1];
+	    pointDippers.push(pointDipper);
+	}
+	else if(pointDipperMode==3)
+	{
+	    pointDipper = [0,pointDistance/2, 0, 1, 1]; //X, Y, Phase, Frequency, Amplitude
+	    pointDippers.push(pointDipper);
+	    pointDipper = [0, -pointDistance/2, 3.1415, 1, 1];
+	    pointDippers.push(pointDipper);
+	}
+	if (pointDipperMode)
+	    frameNumber=0;
+	pointDippersChanged=true;
+	clearWallsOnNextFrame=true;
+    }
+    
+    function pointDistancePressed(ds)
+    {
+	pointDistance+=(ds*0.05);
+	pointDistanceLabel.innerHTML=pointDistance.toFixed(2);
+	updatePointDippers();
+    }
+    
     function gapWidthPressed(ds)
     { 	
 	gapWidth+=(ds*0.05);
@@ -1300,6 +1410,7 @@ body {
     function clearButtonPressed()
     {
 	clearOnNextFrame=true;
+	frameNumber=0;
 	requestFrame();
     }
 </script>
@@ -1346,10 +1457,10 @@ body {
     <td><button id = "shadingbutton" type="button" onclick="shadingButtonPressed();" style="height:40px; width:60px">Shader</button><br>
     <span id="shaderLabel">Phong</span></td>
     <td><button id = "wallbutton" type="button" onclick="wallButtonPressed();" style="height:40px; width:60px">Wall</button>	<br>
-    <span id="wallLabel">2 Slit</span></td>    
+    <span id="wallLabel">2 Slit</span></td>
     <td><button id = "wallBehaviourbutton" type="button" onclick="wallBehaviourButtonPressed();" style="height:40px; width:70px">Wall Behaviour</button><br>
     <span id="wallBehaviourLabel">Hard</span></td>
-    <td><button id = "dipperbutton" type="button" onclick="dipperButtonPressed();" style="height:40px; width:60px">Dipper</button><br>
+    <td><button id = "dipperbutton" type="button" onclick="dipperButtonPressed();" style="height:40px; width:60px">Bar Dipper</button><br>
     <span id="dipperLabel">On</span></td>   
     
     <td id="gapWidthControls">
@@ -1367,6 +1478,17 @@ body {
     <button id = "gapDistanceDn" type="button" onclick="gapDistancePressed(-1);" style="height:20px; width:30px">-</button></span>
     <br>
     <span id="gapDistanceLabel">.4</span></td>
+    
+    <td><button id = "pointDipperButton" type="button" onclick="pointDipperButtonPressed();" style="height:40px; width:60px">Point Dipper</button>	<br>
+    <span id="pointDipperLabel">Off</span></td>
+    
+    <td  id="pointDistanceControls">
+    Point Dist<br>
+    <span  style="white-space: nowrap;"><button id = "pointDistanceUp" type="button" onclick="pointDistancePressed(1);" style="height:20px; width:30px">+</button>
+    <button id = "pointDistanceDn" type="button" onclick="pointDistancePressed(-1);" style="height:20px; width:30px">-</button></span>
+    <br>
+    <span id="pointDistanceLabel">1</span></td>
+    
     </tr></table>
     <div>
     <canvas id="water-canvas" style="border: none;" width="512" height="512"></canvas>    
