@@ -1296,7 +1296,7 @@ body {
     {  	
 	useBumpmap = !useBumpmap;
 	if (useBumpmap)
-	    shaderLabel.innerHTML="Phong";
+	    shaderLabel.innerHTML="Light";
 	else
 	    shaderLabel.innerHTML="Height";
 	requestFrame();
@@ -1455,13 +1455,14 @@ body {
     <td><button id = "renderbutton" type="button" onclick="renderButtonPressed();" style="height:40px; width:60px">Render Style</button><br>
     <span id="renderLabel">Solid</span></td>
     <td><button id = "shadingbutton" type="button" onclick="shadingButtonPressed();" style="height:40px; width:60px">Shader</button><br>
-    <span id="shaderLabel">Phong</span></td>
-    <td><button id = "wallbutton" type="button" onclick="wallButtonPressed();" style="height:40px; width:60px">Wall</button>	<br>
-    <span id="wallLabel">2 Slit</span></td>
+    <span id="shaderLabel">Light</span></td>
     <td><button id = "wallBehaviourbutton" type="button" onclick="wallBehaviourButtonPressed();" style="height:40px; width:70px">Wall Behaviour</button><br>
     <span id="wallBehaviourLabel">Hard</span></td>
     <td><button id = "dipperbutton" type="button" onclick="dipperButtonPressed();" style="height:40px; width:60px">Bar Dipper</button><br>
     <span id="dipperLabel">On</span></td>   
+    
+    <td><button id = "wallbutton" type="button" onclick="wallButtonPressed();" style="height:40px; width:60px">Wall</button>	<br>
+    <span id="wallLabel">2 Slit</span></td>
     
     <td id="gapWidthControls">
     <span  style="white-space: nowrap;">Gap Width</span><br>
@@ -1487,8 +1488,10 @@ body {
     <span  style="white-space: nowrap;"><button id = "pointDistanceUp" type="button" onclick="pointDistancePressed(1);" style="height:20px; width:30px">+</button>
     <button id = "pointDistanceDn" type="button" onclick="pointDistancePressed(-1);" style="height:20px; width:30px">-</button></span>
     <br>
-    <span id="pointDistanceLabel">1</span></td>
-    
+    <span id="pointDistanceLabel">1</span></td><td>&nbsp;&nbsp;</td>
+     <td style="border: 1px solid black;">&#9426;Matthew Wellings 2015<br>Licence: GNU GPL v3<br>
+     <a href="http://matthewwellings.com/rippletank/help">Help</a>&nbsp;&nbsp;&nbsp;<a href="http://matthewwellings.com/rippletank/source">Source</a>
+     </td>
     </tr></table>
     <div>
     <canvas id="water-canvas" style="border: none;" width="512" height="512"></canvas>    
