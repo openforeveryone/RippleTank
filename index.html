@@ -898,14 +898,18 @@ body {
 		gl.bindBuffer(gl.ARRAY_BUFFER, inDirectionBuffer);
 		gl.uniform2f(edgeShaderProgram.windowSizeUniform, WaterBufferSize, WaterBufferSize);
 		gl.vertexAttribPointer(edgeShaderProgram.inDirectionAttribute, 2, gl.FLOAT, false, 0, 0);
-		gl.drawArrays(gl.LINES, 0, WallPositionBuffer.numItems);	
-		
+		gl.drawArrays(gl.LINES, 0, WallPositionBuffer.numItems);		
 		gl.disableVertexAttribArray(edgeShaderProgram.inDirectionAttribute);
-                gl.useProgram(integrateShaderProgram);
+		gl.bindFramebuffer(gl.FRAMEBUFFER, null);
 		gl.bindTexture(gl.TEXTURE_2D, waterHeight1TX);
 		gl.bindFramebuffer(gl.FRAMEBUFFER, waterHeightFramebuffer);
+		gl.viewport(0, 0, WaterBufferSize, WaterBufferSize);
+                gl.useProgram(integrateShaderProgram);
+		gl.enableVertexAttribArray(integrateShaderProgram.vertexAttribute);
+		gl.bindBuffer(gl.ARRAY_BUFFER, WallPositionBuffer);
+		gl.vertexAttribPointer(integrateShaderProgram.vertexAttribute, WallPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
 		gl.drawArrays(gl.LINES, 0, WallPositionBuffer.numItems);
-		gl.disableVertexAttribArray(integrateShaderProgram.vertexAttribute);
+// 		gl.disableVertexAttribArray(integrateShaderProgram.vertexAttribute);
 	    }
 	    //Calc water velocity:	
 	    gl.bindTexture(gl.TEXTURE_2D, waterHeightTX);
@@ -943,7 +947,8 @@ body {
     //         gl.clear(gl.COLOR_BUFFER_BIT); 
 	    gl.useProgram(integrateShaderProgram);
 	    gl.enableVertexAttribArray(integrateShaderProgram.vertexAttribute);
-// 	    gl.enableVertexAttribArray(integrateShaderProgram.texcoordAttribute);
+	    gl.bindBuffer(gl.ARRAY_BUFFER, VertexPositionBuffer);
+	    gl.vertexAttribPointer(integrateShaderProgram.vertexAttribute, VertexPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
 	    gl.enable(gl.BLEND);
 	    gl.blendColor(0.995,1,1,1);
 	    gl.blendEquation(gl.FUNC_ADD);
