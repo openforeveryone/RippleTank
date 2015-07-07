@@ -161,7 +161,7 @@ body {
 
 <script id="integrate-fs" type="x-shader/x-fragment">
       uniform sampler2D waterVelTex;
-      varying mediump vec2 v_texcord;
+      varying highp vec2 v_texcord;
 
       void main(void)
       {
@@ -171,11 +171,10 @@ body {
 
 <script id="integrate-vs" type="x-shader/x-vertex">
       attribute highp vec4 vertex;
-      attribute highp vec2 texcord;
-      varying mediump vec2 v_texcord;      
+      varying highp vec2 v_texcord;  
       void main(void)
-      {	  
-	  v_texcord = texcord;
+      {	        
+	  v_texcord = vertex.xy/2.0+0.5;
 	  gl_Position = vertex;
       }
 </script>
@@ -463,6 +462,8 @@ body {
     var waterHeightFramebuffer;    
     var waterVelTX;
     var waterVelFramebuffer;
+    var waterHeight1TX;
+    var waterHeight1Framebuffer;   
     var WaterBufferSize=512;
     var cvTX;
     
@@ -498,11 +499,6 @@ body {
 	checkError();
 	waterHeightTX = gl.createTexture();
 	gl.bindTexture(gl.TEXTURE_2D, waterHeightTX);	
-	//Need a replacement for this
-// 	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_BORDER);
-// 	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_BORDER);
-// 	var borderColour = [0.5, 0.0, 0.0, 1.0];
-// 	gl.texParameterf(gl.TEXTURE_2D, gl.TEXTURE_BORDER_COLOR, borderColour);
 	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
 	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 	gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, WaterBufferSize, WaterBufferSize, 0, gl.RGBA, floatEnum, null);
@@ -541,6 +537,28 @@ body {
 	}
 	gl.clearColor(0.0, 0.0, 0.0, 1.0);   
         gl.clear(gl.COLOR_BUFFER_BIT);
+	gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+        
+        checkError();
+	waterHeight1TX = gl.createTexture();
+	gl.bindTexture(gl.TEXTURE_2D, waterHeight1TX);	
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+	gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, WaterBufferSize, WaterBufferSize, 0, gl.RGBA, floatEnum, null);
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+	waterHeight1Framebuffer = gl.createFramebuffer();
+	gl.bindFramebuffer(gl.FRAMEBUFFER, waterHeight1Framebuffer);
+	gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, waterHeight1TX, 0);
+	gl.viewport(0, 0, WaterBufferSize, WaterBufferSize); 
+	if (gl.checkFramebufferStatus(gl.FRAMEBUFFER)!=gl.FRAMEBUFFER_COMPLETE)
+	{
+	  console.error("Framebuffer Error 4");
+	  framebufferError=true;
+	}
+	gl.clearColor(0.0, 0.0, 0.0, 1.0);  
+        gl.clear(gl.COLOR_BUFFER_BIT);       
+        
         
 	gl.bindFramebuffer(gl.FRAMEBUFFER, null);
 	if (gl.checkFramebufferStatus(gl.FRAMEBUFFER)!=gl.FRAMEBUFFER_COMPLETE)
@@ -864,14 +882,15 @@ body {
 	    clearWallsOnNextFrame=false;
 	}
         if (running)
-        {
+        {        
+	    gl.activeTexture(gl.TEXTURE0);
 	    if(edgeReflections==0)
 	    {
 		//Set Edge values	
-		gl.bindTexture(gl.TEXTURE_2D, waterHeightTX);		
-		gl.bindFramebuffer(gl.FRAMEBUFFER, waterHeightFramebuffer); //Yes we are binding the buffer that we are using as a texture (technically undefined behaviour).		
+		gl.bindTexture(gl.TEXTURE_2D, waterHeightTX);
+		gl.bindFramebuffer(gl.FRAMEBUFFER, waterHeight1Framebuffer);
 		gl.viewport(0, 0, WaterBufferSize, WaterBufferSize);
-		gl.useProgram(edgeShaderProgram);		
+		gl.useProgram(edgeShaderProgram);
 		gl.enableVertexAttribArray(edgeShaderProgram.vertexAttribute);
 		gl.enableVertexAttribArray(edgeShaderProgram.inDirectionAttribute);
 		gl.bindBuffer(gl.ARRAY_BUFFER, WallPositionBuffer);
@@ -881,11 +900,14 @@ body {
 		gl.vertexAttribPointer(edgeShaderProgram.inDirectionAttribute, 2, gl.FLOAT, false, 0, 0);
 		gl.drawArrays(gl.LINES, 0, WallPositionBuffer.numItems);	
 		
-		gl.disableVertexAttribArray(edgeShaderProgram.vertexAttribute);
 		gl.disableVertexAttribArray(edgeShaderProgram.inDirectionAttribute);
+                gl.useProgram(integrateShaderProgram);
+		gl.bindTexture(gl.TEXTURE_2D, waterHeight1TX);
+		gl.bindFramebuffer(gl.FRAMEBUFFER, waterHeightFramebuffer);
+		gl.drawArrays(gl.LINES, 0, WallPositionBuffer.numItems);
+		gl.disableVertexAttribArray(integrateShaderProgram.vertexAttribute);
 	    }
 	    //Calc water velocity:	
-	    gl.activeTexture(gl.TEXTURE0);
 	    gl.bindTexture(gl.TEXTURE_2D, waterHeightTX);
 	    gl.bindFramebuffer(gl.FRAMEBUFFER, waterVelFramebuffer);  
 	    if (gl.checkFramebufferStatus(gl.FRAMEBUFFER)!=gl.FRAMEBUFFER_COMPLETE)
@@ -921,7 +943,7 @@ body {
     //         gl.clear(gl.COLOR_BUFFER_BIT); 
 	    gl.useProgram(integrateShaderProgram);
 	    gl.enableVertexAttribArray(integrateShaderProgram.vertexAttribute);
-	    gl.enableVertexAttribArray(integrateShaderProgram.texcoordAttribute);
+// 	    gl.enableVertexAttribArray(integrateShaderProgram.texcoordAttribute);
 	    gl.enable(gl.BLEND);
 	    gl.blendColor(0.995,1,1,1);
 	    gl.blendEquation(gl.FUNC_ADD);
