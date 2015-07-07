@@ -886,7 +886,7 @@ body {
 	    gl.activeTexture(gl.TEXTURE0);
 	    if(edgeReflections==0)
 	    {
-		//Set Edge values	
+		//Set Edge values
 		gl.bindTexture(gl.TEXTURE_2D, waterHeightTX);
 		gl.bindFramebuffer(gl.FRAMEBUFFER, waterHeight1Framebuffer);
 		gl.viewport(0, 0, WaterBufferSize, WaterBufferSize);
@@ -954,17 +954,20 @@ body {
 	//Reset areas that are walls:
 	gl.bindTexture(gl.TEXTURE_2D, null);
 	gl.disable(gl.BLEND);	
-	gl.useProgram(wallShaderProgram);
-        gl.uniform4f(wallShaderProgram.colourUniform, 0,0,1,0);        
+	gl.useProgram(wallShaderProgram);     
         //Outer Walls
         if (edgeReflections==2)
         {
+            //We do not want the shader treating this as an internal wall:
+            gl.uniform4f(wallShaderProgram.colourUniform, 0,0,0,0);   
 	    gl.enableVertexAttribArray(wallShaderProgram.vertexAttribute);	
 	    gl.bindBuffer(gl.ARRAY_BUFFER, WallPositionBuffer);
 	    gl.vertexAttribPointer(wallShaderProgram.vertexAttribute, WallPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
 	    gl.drawArrays(gl.LINES, 0, WallPositionBuffer.numItems);
 	} //Soft reflections on outer wall handled by CLAMP_TO_EDGE.
 	
+        //Clamp value to 0 and tell shader to treat as an internal wall:
+        gl.uniform4f(wallShaderProgram.colourUniform, 0,0,1,0);    
 	if (slits==1)
 	{
 	    gl.bindBuffer(gl.ARRAY_BUFFER, Bar1GPositionBuffer);
@@ -1447,6 +1450,7 @@ body {
 	    edgeReflections=0;
 	    edgeBehaviourLabel.innerHTML="None";
 	}
+	clearWallsOnNextFrame=true;
     }    
     
     function dipperButtonPressed()
