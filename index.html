@@ -69,12 +69,18 @@ body {
 	  if (l.b > 0.5) l=t;
 	  if (u.b > 0.5) u=t;
 	  if (d.b > 0.5) d=t;
+// 	  if (currentpos.x+windowSizeR.x*2.0>1.0){
+// 	      highp float wavespeed = 0.1;
+// 	      r=(wavespeed*t+r)/(1.0+wavespeed);
+// 	      r=vec4(0.0);
+// 	  }
 	  mediump vec4 averageNeighbourLevel = (r + l + u + d)/4.0;
 	  mediump vec4 leveldiff=averageNeighbourLevel-t;
 	  mediump vec4 k=vec4(1,1,0,1);
-	  mediump vec4 force = leveldiff*k; //Hooke's law
+	  mediump vec4 force = leveldiff*k; //Hooke's law	  
+	  if (t.b < -0.5) force=vec4(0.0);
       //    gl_FragColor=vec4(0,1,0,1);
-	  gl_FragColor = force;   //Integrating on Newton2 dobe by blending.
+	  gl_FragColor = force;   //Integrating on Newton2 done by blending.
       //    gl_FragColor = texture2D(waterLevelTex, currentpos);
     }
 </script>
@@ -89,15 +95,17 @@ body {
     {
 	  mediump vec2 currentpos = v_texcord; //Componant-wise division.
 	  mediump vec2 windowSizeR = vec2(1.0/windowSize.x, 1.0/windowSize.y);
-	  mediump vec4 averageNeighbourLevel = (
-		    texture2D(waterLevelTex, vec2(currentpos.x-windowSizeR.x, currentpos.y))
-		  + texture2D(waterLevelTex, vec2(currentpos.x+windowSizeR.x, currentpos.y))
-		  + texture2D(waterLevelTex, vec2(currentpos.x, currentpos.y-windowSizeR.y))
-		  + texture2D(waterLevelTex, vec2(currentpos.x, currentpos.y+windowSizeR.y)))/4.0;
+	  mediump vec4 r = texture2D(waterLevelTex, vec2(currentpos.x+windowSizeR.x, currentpos.y));
+	  mediump vec4 l = texture2D(waterLevelTex, vec2(currentpos.x-windowSizeR.x, currentpos.y));
+	  mediump vec4 u = texture2D(waterLevelTex, vec2(currentpos.x, currentpos.y-windowSizeR.y));
+	  mediump vec4 d = texture2D(waterLevelTex, vec2(currentpos.x, currentpos.y+windowSizeR.y));
+	  mediump vec4 t = texture2D(waterLevelTex, currentpos);
 
-	  mediump vec4 leveldiff=averageNeighbourLevel-texture2D(waterLevelTex, currentpos);
+	  mediump vec4 averageNeighbourLevel = (r + l + u + d)/4.0;
+	  mediump vec4 leveldiff=averageNeighbourLevel-t;
 	  mediump vec4 k=vec4(1,1,0,1);
 	  mediump vec4 force = leveldiff*k; //Hooke's law
+	  if (t.b < -0.5) force=vec4(0.0);
       //    gl_FragColor=vec4(0,1,0,1);
 	  gl_FragColor = force;   //Integrating on Newton2 dobe by blending.
       //    gl_FragColor = texture2D(waterLevelTex, currentpos);
@@ -114,6 +122,39 @@ body {
       {
 // 	  pos = vertex.xy;
 	  v_texcord = texcord;
+	  gl_Position = vec4(vertex,0,1);
+      }
+</script>
+
+
+<script id="edgecalc-fs" type="x-shader/x-fragment">
+//Handles calculating the edge values for tanks with no outer walls (infinite tanks).
+//waterlevel[wavebuffer][0][y]=(wavespeed*waterlevel[wavebuffer][1][y]+waterlevel[wavebuffer][0][y])/(1+wavespeed);
+    uniform sampler2D waterLevelTex;
+    uniform highp vec2 windowSize;
+    varying highp vec2 v_texcord;
+    varying highp vec2 v_inDirection;
+    void main(void)
+    {
+	  highp vec2 currentpos = v_texcord;
+	  highp vec2 windowSizeR = vec2(1.0/windowSize.x, 1.0/windowSize.y);
+	  highp vec4 thisColour = texture2D(waterLevelTex, currentpos);
+	  highp float thisLevel = thisColour.x;
+	  highp float inLevel = texture2D(waterLevelTex, vec2(currentpos.x+windowSizeR.x*v_inDirection.x, currentpos.y+windowSizeR.y*v_inDirection.y)).x;
+	  highp float wavespeed = 0.45;
+	  gl_FragColor = vec4((wavespeed*inLevel+thisLevel)/(1.0+wavespeed),thisColour.y,-1.0,thisColour.w);
+    }
+</script>
+
+<script id="edgecalc-vs" type="x-shader/x-vertex">
+      attribute highp vec2 vertex;
+      attribute highp vec2 inDirection;
+      varying highp vec2 v_texcord;
+      varying highp vec2 v_inDirection;
+      void main(void)
+      {
+	  v_inDirection = inDirection;
+	  v_texcord = vertex/2.0+0.5;
 	  gl_Position = vec4(vertex,0,1);
       }
 </script>
@@ -334,9 +375,12 @@ body {
     
     var dropShaderProgram;
     var forcecalcShaderProgram;
+    var forcecalc1ShaderProgram;
     var integrateShaderProgram;
     var renderShaderProgram;
+    var render1ShaderProgram;
     var wallShaderProgram;
+    var edgeShaderProgram;
 
     function initShaders() {
         var dropFragmentShader = getShader(gl, "drop-fs");
@@ -353,6 +397,8 @@ body {
         var wallVertexShader = getShader(gl, "wall-vs");
         var dipperFragmentShader = getShader(gl, "dipper-fs");
         var dipperVertexShader = getShader(gl, "dipper-vs");
+        var edgeFragmentShader = getShader(gl, "edgecalc-fs");
+        var edgeVertexShader = getShader(gl, "edgecalc-vs");
 
 	dropShaderProgram = getShaderProgram(gl, dropFragmentShader, dropVertexShader);
 	forcecalcShaderProgram = getShaderProgram(gl, forcecalcFragmentShader, forcecalcVertexShader);
@@ -362,6 +408,7 @@ body {
 	render1ShaderProgram = getShaderProgram(gl, render1FragmentShader, renderVertexShader);
 	wallShaderProgram = getShaderProgram(gl, wallFragmentShader, wallVertexShader);
 	dipperShaderProgram = getShaderProgram(gl, dipperFragmentShader, dipperVertexShader);
+	edgeShaderProgram = getShaderProgram(gl, edgeFragmentShader, edgeVertexShader);
 
         gl.useProgram(dropShaderProgram);
         dropShaderProgram.vertexAttribute = gl.getAttribLocation(dropShaderProgram, "vertex");
@@ -403,6 +450,11 @@ body {
         dipperShaderProgram.frameNumberUniform = gl.getUniformLocation(dipperShaderProgram, "frameNumber");
         dipperShaderProgram.vertexAttribute = gl.getAttribLocation(dipperShaderProgram, "vertex");
         dipperShaderProgram.propsAttribute = gl.getAttribLocation(dipperShaderProgram, "props");
+        
+        gl.useProgram(edgeShaderProgram); 
+        edgeShaderProgram.windowSizeUniform = gl.getUniformLocation(edgeShaderProgram, "windowSize");
+        edgeShaderProgram.vertexAttribute = gl.getAttribLocation(edgeShaderProgram, "vertex");
+        edgeShaderProgram.inDirectionAttribute = gl.getAttribLocation(edgeShaderProgram, "inDirection");
         
         return true;
     }
@@ -548,6 +600,7 @@ body {
     var Bar1GPositionBuffer;
     var Bar2GPositionBuffer;
     var DropPositionBuffer;
+    var inDirectionBuffer;
    
     var gapDistance = .4;
     var wallPos = .5;
@@ -601,8 +654,6 @@ body {
       IndexBufferR.numItems = meshIndices.length;
       gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
       
-      WallPositionBuffer = gl.createBuffer();
-      gl.bindBuffer(gl.ARRAY_BUFFER, WallPositionBuffer);
 //       var wallvertices = [
 // 	  -1, 1,
 // 	  -1, -1,
@@ -618,17 +669,33 @@ body {
       var wallvertices = [
 	  -a, a,
 	  -a, -a,
-	  -a, -a,
-	  a, -a,
-	  a, -a,
-	  a, a,
-	  a, a,
-	  -a, a,
+ 	  -a, -a,
+ 	  a, -a,
+ 	  a, -a,
+ 	  a, a,
+ 	  a, a,
+ 	  -a, a,
+      ];      
+      var inDirections = [
+	  1, 0,
+	  1, 0,
+ 	  0, 1,
+ 	  0, 1,
+ 	  -1, 0,
+ 	  -1, 0,
+ 	  0, -1,
+ 	  0, -1,
       ];
       
+      
+      WallPositionBuffer = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, WallPositionBuffer);
       gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(wallvertices), gl.STATIC_DRAW);
       WallPositionBuffer.itemSize = 2;
-      WallPositionBuffer.numItems = 8;      
+      WallPositionBuffer.numItems = 8;   
+      inDirectionBuffer = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, inDirectionBuffer);
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(inDirections), gl.STATIC_DRAW);     
                   
       //Dipper
       DipperPositionBuffer = gl.createBuffer();
@@ -719,12 +786,13 @@ body {
     var rotX = -1;
     var rotZ = 3.14/4;
     var zoom=1;
-    var useBumpmap = true;
+    var useBumpmap = false;
     var slits = 2;
-    var dipper = true;
+    var dipper = false;
     var clearOnNextFrame = false;
     var clearWallsOnNextFrame = false;
-    var softReflections = false;
+    var softWallReflections = false;
+    var edgeReflections = 0;
     var pointDippers = [];
     var pointDippersChanged = false;    
     var pointDipperMode = 0;
@@ -795,9 +863,27 @@ body {
 	    gl.colorMask(true, true, true, true);
 	    clearWallsOnNextFrame=false;
 	}
-	
         if (running)
         {
+	    if(edgeReflections==0)
+	    {
+		//Set Edge values	
+		gl.bindTexture(gl.TEXTURE_2D, waterHeightTX);		
+		gl.bindFramebuffer(gl.FRAMEBUFFER, waterHeightFramebuffer); //Yes we are binding the buffer that we are using as a texture (technically undefined behaviour).		
+		gl.viewport(0, 0, WaterBufferSize, WaterBufferSize);
+		gl.useProgram(edgeShaderProgram);		
+		gl.enableVertexAttribArray(edgeShaderProgram.vertexAttribute);
+		gl.enableVertexAttribArray(edgeShaderProgram.inDirectionAttribute);
+		gl.bindBuffer(gl.ARRAY_BUFFER, WallPositionBuffer);
+		gl.vertexAttribPointer(edgeShaderProgram.vertexAttribute, WallPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
+		gl.bindBuffer(gl.ARRAY_BUFFER, inDirectionBuffer);
+		gl.uniform2f(edgeShaderProgram.windowSizeUniform, WaterBufferSize, WaterBufferSize);
+		gl.vertexAttribPointer(edgeShaderProgram.inDirectionAttribute, 2, gl.FLOAT, false, 0, 0);
+		gl.drawArrays(gl.LINES, 0, WallPositionBuffer.numItems);	
+		
+		gl.disableVertexAttribArray(edgeShaderProgram.vertexAttribute);
+		gl.disableVertexAttribArray(edgeShaderProgram.inDirectionAttribute);
+	    }
 	    //Calc water velocity:	
 	    gl.activeTexture(gl.TEXTURE0);
 	    gl.bindTexture(gl.TEXTURE_2D, waterHeightTX);
@@ -809,7 +895,7 @@ body {
     //         gl.clear(gl.COLOR_BUFFER_BIT); 
     
 	    var fcShader;
-	    if (softReflections)
+	    if (softWallReflections)
 		fcShader=forcecalc1ShaderProgram;
 	    else
 		fcShader=forcecalcShaderProgram;	
@@ -849,7 +935,7 @@ body {
 	gl.useProgram(wallShaderProgram);
         gl.uniform4f(wallShaderProgram.colourUniform, 0,0,1,0);        
         //Outer Walls
-        if (!softReflections)
+        if (edgeReflections==2)
         {
 	    gl.enableVertexAttribArray(wallShaderProgram.vertexAttribute);	
 	    gl.bindBuffer(gl.ARRAY_BUFFER, WallPositionBuffer);
@@ -1320,12 +1406,26 @@ body {
                 
     function wallBehaviourButtonPressed()
     { 	
-	softReflections=!softReflections;
-	if (softReflections)
+	softWallReflections=!softWallReflections;
+	if (softWallReflections)
 	    wallBehaviourLabel.innerHTML="Soft";
 	else
 	    wallBehaviourLabel.innerHTML="Hard";	
     }
+             
+    function edgeBehaviourButtonPressed()
+    { 	
+	edgeReflections++;
+	if (edgeReflections==1)
+	    edgeBehaviourLabel.innerHTML="Soft";
+	else if (edgeReflections==2)
+	    edgeBehaviourLabel.innerHTML="Hard";
+	else
+	{
+	    edgeReflections=0;
+	    edgeBehaviourLabel.innerHTML="None";
+	}
+    }    
     
     function dipperButtonPressed()
     { 	
@@ -1456,13 +1556,15 @@ body {
     <span id="renderLabel">Solid</span></td>
     <td><button id = "shadingbutton" type="button" onclick="shadingButtonPressed();" style="height:40px; width:60px">Shader</button><br>
     <span id="shaderLabel">Light</span></td>
-    <td><button id = "wallBehaviourbutton" type="button" onclick="wallBehaviourButtonPressed();" style="height:40px; width:70px">Wall Behaviour</button><br>
-    <span id="wallBehaviourLabel">Hard</span></td>
+    <td><button id = "edgeBehaviourbutton" type="button" onclick="edgeBehaviourButtonPressed();" style="height:40px; width:80px">Edge Behaviour</button><br>
+    <span id="edgeBehaviourLabel">None</span></td>
     <td><button id = "dipperbutton" type="button" onclick="dipperButtonPressed();" style="height:40px; width:60px">Bar Dipper</button><br>
     <span id="dipperLabel">On</span></td>   
     
-    <td><button id = "wallbutton" type="button" onclick="wallButtonPressed();" style="height:40px; width:60px">Wall</button>	<br>
+    <td><button id = "wallbutton" type="button" onclick="wallButtonPressed();" style="height:40px; width:60px">Wall</button><br>
     <span id="wallLabel">2 Slit</span></td>
+    <td><button id = "wallBehaviourbutton" type="button" onclick="wallBehaviourButtonPressed();" style="height:40px; width:80px">Wall Behaviour</button><br>
+    <span id="wallBehaviourLabel">Hard</span></td>
     
     <td id="gapWidthControls">
     <span  style="white-space: nowrap;">Gap Width</span><br>
