@@ -29,9 +29,9 @@ body {
     {
 	lowp float r = distance(gl_FragCoord.xy, screenPos);
 	if( r > radius ) discard;
-	gl_FragColor = vec4(0,1,0,1);
+// 	gl_FragColor = vec4(0,1,0,1);
 	highp float dropheight = cos(r/radius*3.141)/4.0 +.25;
-	gl_FragColor = channelMask*dropheight;
+	gl_FragColor = -channelMask*dropheight;
     }
 </script>
 
@@ -266,21 +266,31 @@ body {
 
 <script id="dipper-fs" type="x-shader/x-fragment">
       varying highp float height;
+      uniform mediump float frameNumber;
+      uniform mediump vec2 windowSize;
+      varying mediump vec2 screenPos;
       void main(void)
       {
-	  gl_FragColor = vec4(height,0,0,0);
+          lowp float r = distance(gl_FragCoord.xy, screenPos);
+          lowp float radius = 5.0;
+	  if( r > radius ) discard;
+	  highp float dropheight = cos(r/radius*3.141)/4.0 +.25;
+	  gl_FragColor = vec4(height,0,0,dropheight);
       }
 </script>
 
 <script id="dipper-vs" type="x-shader/x-vertex">
       uniform mediump float frameNumber;
+      uniform mediump vec2 windowSize;
       attribute highp vec2 vertex;  //PosX, PosY
       attribute highp vec3 props;   //Phase, Frequency, Amplitude
       varying highp float height;
+      varying mediump vec2 screenPos;
       void main(void)
       {	  
-	  gl_PointSize = 1.0;
+	  gl_PointSize = 10.0;
 	  height = sin(props.y*frameNumber + props.x)*props.z;
+	  screenPos = (vertex.xy/2.0+vec2(0.5,0.5)) * windowSize.xy;
 	  gl_Position = vec4(vertex.x, vertex.y ,0,1);
       }
 </script>
@@ -301,6 +311,7 @@ body {
     }
     
     var gl;
+    var minmaxExt;
     function initGL(canvas) {
         try {
 // 	    gl = WebGLDebugUtils.makeDebugContext(canvas.getContext("experimental-webgl"));
@@ -317,6 +328,9 @@ body {
 		console.log("UNMASKED_VENDOR_WEBGL: " + gl.getParameter(ext.UNMASKED_VENDOR_WEBGL));
 		console.log("UNMASKED_RENDERER_WEBGL: " + gl.getParameter(ext.UNMASKED_RENDERER_WEBGL));
 	    }
+	    minmaxExt = gl.getExtension('EXT_blend_minmax');
+	    if (!minmaxExt)
+                alert("No EXT_blend_minmax support");
             return true;
 	}else{
 	    alert("This page requires WebGL but it cannot be accessed, try upgrading your browser or graphics drivers.");
@@ -447,6 +461,7 @@ body {
         
         gl.useProgram(dipperShaderProgram); 
         dipperShaderProgram.frameNumberUniform = gl.getUniformLocation(dipperShaderProgram, "frameNumber");
+        dipperShaderProgram.windowSizeUniform = gl.getUniformLocation(dipperShaderProgram, "windowSize");
         dipperShaderProgram.vertexAttribute = gl.getAttribLocation(dipperShaderProgram, "vertex");
         dipperShaderProgram.propsAttribute = gl.getAttribLocation(dipperShaderProgram, "props");
         
@@ -842,7 +857,7 @@ body {
 	    var posArray = [];
 	    for(var drop =0; drop < newDrops.length; drop++)
 	    {        
-		  console.log("Adding drop " + drop + " " +newDrops[drop][0] + " " + newDrops[drop][1]);
+// 		  console.log("Adding drop " + drop + " " +newDrops[drop][0] + " " + newDrops[drop][1]);
 		  posArray[drop*2+0]=newDrops[drop][0];
 		  posArray[drop*2+1]=newDrops[drop][1];
 	    }	    
@@ -853,8 +868,10 @@ body {
 	    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(posArray), gl.DYNAMIC_DRAW);	    
 	    gl.vertexAttribPointer(dropShaderProgram.vertexAttribute, 2, gl.FLOAT, false, 0, 0);
 	    checkError();
-
+	    gl.enable(gl.BLEND);
+	    gl.blendEquation(minmaxExt.MIN_EXT);
 	    gl.drawArrays(gl.POINTS, 0, newDrops.length);
+	    gl.disable(gl.BLEND);
 	    checkError();
 	    newDrops = [];
         }
@@ -1014,24 +1031,30 @@ body {
 	    
 	    PointDipperPositionBuffer.numItems = pointDippers.length;
 	    pointDippersChanged=false;
-	}	
-	if (pointDipperMode==5){
+	}
+	if (pointDipperMode==4){
+	    //Dopler
 	    pointDippers=[];
-	    pointDipper = [Math.sin(frameNumber/1000)*0.5, Math.cos(frameNumber/1000)*0.5, 0, 1, 1];
+	    pointDipper = [Math.sin(frameNumber/500)*0.5, Math.cos(frameNumber/500)*0.5, 0, 1, 1];
 	    pointDippers.push(pointDipper);
 	    pointDippersChanged=true;
 	    clearWallsOnNextFrame=true;
-	}	
+	}
 	if (pointDippers.length)
 	{
             gl.useProgram(dipperShaderProgram);
 	    gl.uniform1f(dipperShaderProgram.frameNumberUniform, frameNumber/10);
-	    gl.bindBuffer(gl.ARRAY_BUFFER, PointDipperPositionBuffer);        
+	    gl.bindBuffer(gl.ARRAY_BUFFER, PointDipperPositionBuffer);
+	    gl.uniform2f(dipperShaderProgram.windowSizeUniform, WaterBufferSize, WaterBufferSize);    
 	    gl.vertexAttribPointer(dipperShaderProgram.vertexAttribute, 2, gl.FLOAT, false, 0, 0);
 	    gl.bindBuffer(gl.ARRAY_BUFFER, PointDipperPropsBuffer);        
 	    gl.vertexAttribPointer(dipperShaderProgram.propsAttribute, 3, gl.FLOAT, false, 0, 0);
+	    gl.enable(gl.BLEND);
+	    gl.blendEquation(gl.FUNC_ADD);
+	    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 	    gl.drawArrays(gl.POINTS, 0, PointDipperPositionBuffer.numItems);
-	}
+	}	
+	gl.disable(gl.BLEND);	
         
         //Render to screen
 	gl.bindFramebuffer(gl.FRAMEBUFFER, null);   
@@ -1176,6 +1199,7 @@ body {
 //     }
     
     var mouseDragStart = new Object();
+    var lastdrop = null;
     var canvas;
     
     function webGLStart() {
@@ -1215,7 +1239,12 @@ body {
 		    mouseDragStart.zoom=zoom;
 // 		    console.log("mouseDragStart x:" + mouseDragStart.x + " y:" + mouseDragStart.y + " " + mouseDragStart.distance+ " " + mouseDragStart.angle + " " + zoom);
 		}
-	    }
+	    }else if (event.touches.length==1)
+	    { 	    
+                var x = event.touches[0].pageX - canvas.offsetLeft,
+		    y = event.touches[0].pageY - canvas.offsetTop;
+                lastdrop = screentoMeshMap(x, y);
+            }
         });      
         
         canvas.addEventListener('touchmove', function(event) {        
@@ -1235,7 +1264,13 @@ body {
 		rotX=mouseDragStart.rotX+(y-mouseDragStart.y)/300;
 // 		console.log("Touch Dragging " + x + " " + y + " " + angle + " startzoom:" +mouseDragStart.zoom + " zoom:" +zoom+ " " + distance+ " " + mouseDragStart.distance);
 		requestFrame();
-	    }
+		lastdrop=null;
+	    }else if (event.touches.length==1 && lastdrop!=null)
+	    { 	    
+                var x = event.touches[0].pageX - canvas.offsetLeft,
+		    y = event.touches[0].pageY - canvas.offsetTop;
+                addDropAtScreenPos(x, y, true);
+            }
 // 	    console.log("event.preventDefault()");
 	    event.preventDefault();
         }); 
@@ -1278,29 +1313,7 @@ body {
 			mouseDragStart.rotZ=rotZ;
 		    }
 		}else{
-		    x = (x / canvas.clientWidth - 0.5) * 2;
-		    y = -(y / canvas.clientHeight - 0.5) * 2;
-		    
-		    drop = [x,y];
-		    var invmat = mat4.create();
-		    mat4.invert(invmat, mvpMatrix);
-		    var depth=1;
-		    var z=-.9;
-		    while (depth>.0)
-		    {
-			z=z+.0005;
-			var point = vec4.fromValues(x,y,z,1);
-    // 		    console.log("point " + point[0] + " " + point[1]+ " " + point[2]+ " " + point[3]);
-			vec4.transformMat4(point, point, invmat);
-	// 		console.log("point " + point[0] + " " + point[1]+ " " + point[2]+ " " + point[3]);
-    // 		    console.log("point " + point[0]/point[3] + " " + point[1]/point[3]+ " " + point[2]/point[3]);
-			depth=point[2]/point[3];
-		    }
-		    
-		    drop = [point[0]/point[3],point[1]/point[3]];
-		    newDrops.push(drop);
-
-		    requestFrame();
+		    addDropAtScreenPos(x, y, false);
 		}
             break;            
 	    case 3:
@@ -1321,7 +1334,8 @@ body {
 		    rotX=mouseDragStart.rotX+(y-mouseDragStart.y)/300;
 		    requestFrame();
 		}
-	    }
+	    }else if (event.which==1)   
+                addDropAtScreenPos(x, y, true);
         });
                 
         canvas.addEventListener('mouseup', function(event) {     
@@ -1341,6 +1355,50 @@ body {
 
 	requestFrame();
     }	   
+    
+    function screentoMeshMap(x, y)
+    {
+	x = (x / canvas.clientWidth - 0.5) * 2;
+        y = -(y / canvas.clientHeight - 0.5) * 2;
+        
+        var invmat = mat4.create();
+        mat4.invert(invmat, mvpMatrix);
+        var depth=1;
+        var z=-.9;
+        while (depth>.0)
+        {
+            z=z+.0005;
+            var point = vec4.fromValues(x,y,z,1);
+// 		    console.log("point " + point[0] + " " + point[1]+ " " + point[2]+ " " + point[3]);
+            vec4.transformMat4(point, point, invmat);
+// 		console.log("point " + point[0] + " " + point[1]+ " " + point[2]+ " " + point[3]);
+// 		    console.log("point " + point[0]/point[3] + " " + point[1]/point[3]+ " " + point[2]/point[3]);
+            depth=point[2]/point[3];
+        }
+        var drop = [point[0]/point[3],point[1]/point[3]];
+	return drop;
+    }
+    
+    function addDropAtScreenPos(x, y, line) {    
+        var drop = screentoMeshMap(x, y);
+        newDrops.push(drop);
+        
+        if (line)
+        {            
+            var dist = [drop[0]-lastdrop[0], drop[1]-lastdrop[1]];
+            var maxDist = Math.max(Math.abs(dist[0]), Math.abs(dist[1]));
+               
+            var steps = maxDist/2*gl.viewportWidth;console.log("addDropAtScreenPos " + line + " " + lastdrop + " " + drop + " " +dist + " " + steps); 
+            for (var i=0; i<steps; i++)
+            {
+                y=i/steps;
+                ndrop = [dist[0]*y+lastdrop[0],dist[1]*y+lastdrop[1]];
+                newDrops.push(ndrop);          
+            }
+        }
+        lastdrop=drop;     
+        requestFrame();    
+    }
         
     function layout() {
 	console.log("layout");
@@ -1476,6 +1534,8 @@ body {
 	    pointDipperLabel.innerHTML="2 In Phase";
 	else if(pointDipperMode==3)
 	    pointDipperLabel.innerHTML="2 Antiphase";
+	else if(pointDipperMode==4)
+	    pointDipperLabel.innerHTML="Dopler";
 	else
 	{
 	    pointDipperMode=0;
