@@ -329,8 +329,6 @@ body {
 		console.log("UNMASKED_RENDERER_WEBGL: " + gl.getParameter(ext.UNMASKED_RENDERER_WEBGL));
 	    }
 	    minmaxExt = gl.getExtension('EXT_blend_minmax');
-	    if (!minmaxExt)
-                alert("No EXT_blend_minmax support");
             return true;
 	}else{
 	    alert("This page requires WebGL but it cannot be accessed, try upgrading your browser or graphics drivers.");
@@ -868,8 +866,11 @@ body {
 	    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(posArray), gl.DYNAMIC_DRAW);	    
 	    gl.vertexAttribPointer(dropShaderProgram.vertexAttribute, 2, gl.FLOAT, false, 0, 0);
 	    checkError();
-	    gl.enable(gl.BLEND);
-	    gl.blendEquation(minmaxExt.MIN_EXT);
+	    if (minmaxExt)
+	    {
+		gl.enable(gl.BLEND);
+		gl.blendEquation(minmaxExt.MIN_EXT);
+	    }
 	    gl.drawArrays(gl.POINTS, 0, newDrops.length);
 	    gl.disable(gl.BLEND);
 	    checkError();
@@ -1033,7 +1034,7 @@ body {
 	    pointDippersChanged=false;
 	}
 	if (pointDipperMode==4){
-	    //Dopler
+	    //Doppler
 	    pointDippers=[];
 	    pointDipper = [Math.sin(frameNumber/500)*0.5, Math.cos(frameNumber/500)*0.5, 0, 1, 1];
 	    pointDippers.push(pointDipper);
@@ -1206,6 +1207,9 @@ body {
     
 // 	mouseDragStart.x=null;
 // 	mouseDragStart.y=null;
+	var isIE = (navigator.userAgent.indexOf("MSIE") != -1 || navigator.userAgent.indexOf("Trident/7") != -1);
+	if (isIE)
+	  alert("Please note that this simulation does not function correctly in Internet Explorer due to IE's limited WebGL support. Please use a modern browser such as Chrome or Firefox.");
 	stats = new Stats();	
 	stats.setMode( 0 ); // 0: fps, 1: ms, 2: mb
 	// align top-left
@@ -1298,13 +1302,12 @@ body {
         canvas.addEventListener('mousedown', function(event) {
 	    var x = event.pageX - canvas.offsetLeft,
 		y = event.pageY - canvas.offsetTop;
-// 	    console.log("mousedown " + x +" " + y);
-	    switch (event.which) {
-
-	    case 1:
+// 	    console.log("mousedown " + x +" " + y + " which:" + event.which+" button:"+event.button + " buttons:" + event.buttons);
+	    if (event.buttons&1) 
+	    {
     // 	    x = (x / 2.0 + 0.5) * WaterBufferSize;
 		if (event.ctrlKey || event.shiftKey)
-		{	
+		{
 		    if (render3D)
 		    {
 			mouseDragStart.x=x;
@@ -1314,43 +1317,40 @@ body {
 		    }
 		}else{
 		    addDropAtScreenPos(x, y, false);
-		}
-            break;            
-	    case 3:
-		rotateAnim=true;
+		}		
 	    }
+            if (event.buttons&3) 
+		rotateAnim=true;
         });      
         
         canvas.addEventListener('mousemove', function(event) {     
 	    var x = event.pageX - canvas.offsetLeft,
 		y = event.pageY - canvas.offsetTop;
-// 	    console.log("mousemove " + x +" " + y);
+// 	    console.log("mousemove " + x +" " + y + " which:" + event.which+" button:"+event.button + " buttons:" + event.buttons);
 	    if (mouseDragStart.x!=null)
 	    {
 // 		console.log("Dragging " + event.which + x + " " + y);
-		switch (event.which) {          
-		case 1:
+		if (event.buttons&1)   
+		{
 		    rotZ=mouseDragStart.rotZ+(x-mouseDragStart.x)/300;
 		    rotX=mouseDragStart.rotX+(y-mouseDragStart.y)/300;
 		    requestFrame();
 		}
-	    }else if (event.which==1)   
+	    }else if (event.buttons&1 && lastdrop)   
                 addDropAtScreenPos(x, y, true);
         });
                 
         canvas.addEventListener('mouseup', function(event) {     
 	    var x = event.pageX - canvas.offsetLeft,
 		y = event.pageY - canvas.offsetTop;
-// 	    console.log("mouseup " + x +" " + y);
+// 	    console.log("mouseup " + x +" " + y + " which:" + event.which+" button:"+event.button + " buttons:" + event.buttons);
 	    if (mouseDragStart.x!=null)
 	    {
-		console.log("mouseup " + event.which + x + " " + y);
-		switch (event.which) {          
-		case 1:
-		    mouseDragStart.x=null;
-		    mouseDragStart.y=null;
-		}
+		mouseDragStart.x=null;
+		mouseDragStart.y=null;
 	    }
+	    if (lastdrop)
+		lastdrop = null;
         });
 
 	requestFrame();
@@ -1535,7 +1535,7 @@ body {
 	else if(pointDipperMode==3)
 	    pointDipperLabel.innerHTML="2 Antiphase";
 	else if(pointDipperMode==4)
-	    pointDipperLabel.innerHTML="Dopler";
+	    pointDipperLabel.innerHTML="Doppler";
 	else
 	{
 	    pointDipperMode=0;
