@@ -1567,6 +1567,7 @@ body {
 	pointDistance+=(ds*0.05);
 	updateLabels();	
 	updatePointDippers();
+	setURL();	
     }
     
     function gapWidthPressed(ds)
@@ -1626,9 +1627,8 @@ body {
 	    urlstrings.push("pointDipperMode="+"2Antiphase");
 	else if(pointDipperMode==4)
 	    urlstrings.push("pointDipperMode="+"Doppler");
-	if (pointDistance.toFixed(2)!="1")
+	if (pointDistance.toFixed(2)!="1.00")
 	    urlstrings.push("pointDistance="+pointDistance.toFixed(2));
-	if (gapDistance!=0.4)
 	var urlstring=".";
 	if (urlstrings.length)
 	    urlstring = "?";
