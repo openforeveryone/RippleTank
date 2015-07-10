@@ -1459,32 +1459,21 @@ body {
     function renderButtonPressed(){
 	console.log("renderButtonPressed");
 	if (renderStyle=="Grid")
-	{
-	    renderStyle="Points"
-	    renderLabel.innerHTML="Points";	  	    
-	}
+	    renderStyle="Points"  	
 	else if (renderStyle=="Points")
-	{
-	    renderStyle=null
-	    renderLabel.innerHTML="Solid";	  	    
-	}
+	    renderStyle=null;
 	else
-	{
 	    renderStyle="Grid"
-	    renderLabel.innerHTML="Grid";	  	    
-	}
 	requestFrame();
+	updateLabels();
 	setURL();
     }
     
     function projectionButtonPressed()
     {
-	render3D = !render3D;
-	if (render3D)
-	    projectionLabel.innerHTML="3D";
-	else
-	    projectionLabel.innerHTML="2D";
+	render3D = !render3D;	
 	rotateAnim=true;
+	updateLabels();
 	requestFrame();
 	setURL();
     }    
@@ -1492,10 +1481,7 @@ body {
     function shadingButtonPressed()
     {  	
 	useBumpmap = !useBumpmap;
-	if (useBumpmap)
-	    shaderLabel.innerHTML="Light";
-	else
-	    shaderLabel.innerHTML="Height";
+	updateLabels();
 	requestFrame();
 	setURL();
     }
@@ -1503,16 +1489,10 @@ body {
     function wallButtonPressed()
     { 	
 	slits++;
-	if (slits==1)
-	    wallLabel.innerHTML="1 Slit";
-	else if (slits==2)
-	    wallLabel.innerHTML="2 Slits";
-	else 
-	{
-	    slits=0;	    
-	    wallLabel.innerHTML="No wall";
-	}
+	if (slits > 2) 
+	    slits=0;	   
 	clearWallsOnNextFrame=true;
+	updateLabels();
 	requestFrame();
 	setURL();
     }
@@ -1520,25 +1500,18 @@ body {
     function wallBehaviourButtonPressed()
     { 	
 	softWallReflections=!softWallReflections;
-	if (softWallReflections)
-	    wallBehaviourLabel.innerHTML="Soft";
-	else
-	    wallBehaviourLabel.innerHTML="Hard";
+	updateLabels();
 	setURL();	
     }
              
     function edgeBehaviourButtonPressed()
     { 	
 	edgeReflections++;
-	if (edgeReflections==1)
-	    edgeBehaviourLabel.innerHTML="Soft";
-	else if (edgeReflections==2)
-	    edgeBehaviourLabel.innerHTML="Hard";
-	else
+	if (edgeReflections>2)
 	{//TODO: Clear the heightmap
 	    edgeReflections=0;
-	    edgeBehaviourLabel.innerHTML="None";
 	}
+	updateLabels();
 	clearWallsOnNextFrame=true;
 	setURL();
     }    
@@ -1546,30 +1519,17 @@ body {
     function dipperButtonPressed()
     { 	
 	dipper = !dipper;
-	if (dipper)
-	    dipperLabel.innerHTML="On";
-	else
-	    dipperLabel.innerHTML="Off";
+	updateLabels();	
 	setURL();
     }
     
     function pointDipperButtonPressed()
     { 	
 	pointDipperMode++;
-	if(pointDipperMode==1)
-	    pointDipperLabel.innerHTML="Single";
-	else if(pointDipperMode==2)
-	    pointDipperLabel.innerHTML="2 In Phase";
-	else if(pointDipperMode==3)
-	    pointDipperLabel.innerHTML="2 Antiphase";
-	else if(pointDipperMode==4)
-	    pointDipperLabel.innerHTML="Doppler";
-	else
-	{
+	if(pointDipperMode>4)
 	    pointDipperMode=0;
-	    pointDipperLabel.innerHTML="Off";
-	}	
 	updatePointDippers();
+	updateLabels();	
 	setURL();
     }
     
@@ -1605,14 +1565,14 @@ body {
     function pointDistancePressed(ds)
     {
 	pointDistance+=(ds*0.05);
-	pointDistanceLabel.innerHTML=pointDistance.toFixed(2);
+	updateLabels();	
 	updatePointDippers();
     }
     
     function gapWidthPressed(ds)
     { 	
 	gapWidth+=(ds*0.05);
-	gapWidthLabel.innerHTML=gapWidth.toFixed(2);
+	updateLabels();	
 	initWallBuffers();
 	clearWallsOnNextFrame=true;
 	requestFrame();
@@ -1622,7 +1582,7 @@ body {
     function gapDistancePressed(ds)
     {
 	gapDistance+=(ds*0.05);
-	gapDistanceLabel.innerHTML=gapDistance.toFixed(2);
+	updateLabels();	
 	initWallBuffers();
 	clearWallsOnNextFrame=true;
 	requestFrame();
@@ -1738,6 +1698,7 @@ body {
 	initWallBuffers();
 	clearWallsOnNextFrame=true;
 	requestFrame();	
+	updateLabels();
     }
     
     function onPopState(event)
@@ -1767,6 +1728,57 @@ body {
 	}
       } 
 	return query_string;
+    }
+    
+    function updateLabels()
+    {
+	if (render3D)
+	    projectionLabel.innerHTML="3D";
+	else
+	    projectionLabel.innerHTML="2D";
+	if (renderStyle=="Grid")
+	    renderLabel.innerHTML="Grid";
+	else if (renderStyle=="Points")
+	    renderLabel.innerHTML="Points";
+	else
+	    renderLabel.innerHTML="Solid";
+	if (useBumpmap)
+	    shaderLabel.innerHTML="Light";
+	else
+	    shaderLabel.innerHTML="Height";
+	if (edgeReflections==1)
+	    edgeBehaviourLabel.innerHTML="Soft";
+	else if (edgeReflections==2)
+	    edgeBehaviourLabel.innerHTML="Hard";
+	else
+	    edgeBehaviourLabel.innerHTML="None";
+	if (dipper)
+	    dipperLabel.innerHTML="On";
+	else
+	    dipperLabel.innerHTML="Off";
+	if (slits==1)
+	    wallLabel.innerHTML="1 Slit";
+	else if (slits==2)
+	    wallLabel.innerHTML="2 Slits";
+	else
+	    wallLabel.innerHTML="No wall";
+	if (softWallReflections)
+	    wallBehaviourLabel.innerHTML="Soft";
+	else
+	    wallBehaviourLabel.innerHTML="Hard";
+	gapWidthLabel.innerHTML=gapWidth.toFixed(2);
+	gapDistanceLabel.innerHTML=gapDistance.toFixed(2);
+	if(pointDipperMode==1)
+	    pointDipperLabel.innerHTML="Single";
+	else if(pointDipperMode==2)
+	    pointDipperLabel.innerHTML="2 In Phase";
+	else if(pointDipperMode==3)
+	    pointDipperLabel.innerHTML="2 Antiphase";
+	else if(pointDipperMode==4)
+	    pointDipperLabel.innerHTML="Doppler";
+	else
+	    pointDipperLabel.innerHTML="Off";
+	pointDistanceLabel.innerHTML=pointDistance.toFixed(2);
     }
 </script>
 </head>
