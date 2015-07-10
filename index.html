@@ -1224,7 +1224,8 @@ body {
 	    return;
         if (!initBuffers())
 	    return;
-	    
+	    	    
+	setOptionsFromQuery();
 	layout();
 	document.body.appendChild( stats.domElement );	
         
@@ -1354,7 +1355,9 @@ body {
 	    if (lastdrop)
 		lastdrop = null;
         });
-
+	
+	window.onpopstate = onPopState;
+	
 	requestFrame();
     }	   
     
@@ -1532,7 +1535,7 @@ body {
 	else if (edgeReflections==2)
 	    edgeBehaviourLabel.innerHTML="Hard";
 	else
-	{
+	{//TODO: Clear the heightmap
 	    edgeReflections=0;
 	    edgeBehaviourLabel.innerHTML="None";
 	}
@@ -1638,7 +1641,7 @@ body {
     {
 	var urlstrings = [];
 	if (render3D)
-	    urlstrings.push("3D=true&RotX="+rotX.toFixed(2)+"&RotZ="+rotZ.toFixed(2));
+	    urlstrings.push("3D=true&rotX="+rotX.toFixed(2)+"&rotZ="+rotZ.toFixed(2));
 	if (!useBumpmap)
 	    urlstrings.push("shder=height");
 	if (renderStyle)
@@ -1663,6 +1666,9 @@ body {
 	    urlstrings.push("pointDipperMode="+"2Antiphase");
 	else if(pointDipperMode==4)
 	    urlstrings.push("pointDipperMode="+"Doppler");
+	if (pointDistance.toFixed(2)!="1")
+	    urlstrings.push("pointDistance="+pointDistance.toFixed(2));
+	if (gapDistance!=0.4)
 	var urlstring=".";
 	if (urlstrings.length)
 	    urlstring = "?";
@@ -1672,16 +1678,95 @@ body {
 	    if (i+1 < urlstrings.length)
 	      urlstring = urlstring + "&";
 	}
-// 	console.log(urlstring);
-// 	if (raplace)
-// 	    console.log(urlstring + " raplace");
-// 	else
-// 	    console.log(urlstring + " add ");
-// 	return;
 	if (raplace)
 	    window.history.replaceState(null, null, urlstring);
 	else
 	    window.history.pushState(null, null, urlstring);
+    }
+    
+    function setOptionsFromQuery()
+    {
+	var query = getQuery()
+// 	console.log(query);
+	if (render3D != (query["3D"]=="true"))
+	{
+	    render3D = (query["3D"]=="true");
+	    rotateAnim=true;
+	}
+	useBumpmap = !(query["shder"]=="height");
+	renderStyle = query["renderStyle"];
+	if (query["edgeReflections"]=="Soft")
+	    edgeReflections=1;
+	else if (query["edgeReflections"]=="Hard")
+	    edgeReflections=2;
+	else //TODO: Clear the heightmap
+	    edgeReflections=0;
+	dipper = !(query["barDipper"]=="off");
+	if (query["wallSlits"]==1)
+	    slits=1;
+	else if (query["wallSlits"]==0)
+	    slits=0;
+	else
+	    slits=2;
+	softWallReflections=(query["wallSlits"]=="Soft");
+	gapWidth=parseFloat(query["gapWidth"]);
+	if (isNaN(gapWidth))
+	    gapWidth=0.1;	    
+	gapDistance=parseFloat(query["gapDistance"]);
+	if (isNaN(gapDistance))
+	    gapDistance=0.4;	
+	if (query["pointDipperMode"]=="Single")
+	    pointDipperMode = 1;
+	else if (query["pointDipperMode"]=="2InPhase")
+	    pointDipperMode = 2;
+	else if (query["pointDipperMode"]=="2Antiphase")
+	    pointDipperMode = 3;
+	else if (query["pointDipperMode"]=="Doppler")
+	    pointDipperMode = 4;
+	else
+	    pointDipperMode = 0;
+	pointDistance=parseFloat(query["pointDistance"]);
+	if (isNaN(pointDistance))
+	    pointDistance=1;
+	rotX=parseFloat(query["rotX"]);
+	if (isNaN(rotX))
+	    rotX=-1;
+	rotZ=parseFloat(query["rotZ"]);	    
+	if (isNaN(rotZ))
+	    rotZ=0.79;	    
+	updatePointDippers();
+	initWallBuffers();
+	clearWallsOnNextFrame=true;
+	requestFrame();	
+    }
+    
+    function onPopState(event)
+    {
+	setOptionsFromQuery();
+    }
+    
+    //From http://stackoverflow.com/questions/979975/how-to-get-the-value-from-the-url-parameter
+    function getQuery() {
+      // This function is anonymous, is executed immediately and 
+      // the return value is assigned to QueryString!
+      var query_string = {};
+      var query = window.location.search.substring(1);
+      var vars = query.split("&");
+      for (var i=0;i<vars.length;i++) {
+	var pair = vars[i].split("=");
+	    // If first entry with this name
+	if (typeof query_string[pair[0]] === "undefined") {
+	  query_string[pair[0]] = pair[1];
+	    // If second entry with this name
+	} else if (typeof query_string[pair[0]] === "string") {
+	  var arr = [ query_string[pair[0]], pair[1] ];
+	  query_string[pair[0]] = arr;
+	    // If third or later entry with this name
+	} else {
+	  query_string[pair[0]].push(pair[1]);
+	}
+      } 
+	return query_string;
     }
 </script>
 </head>
