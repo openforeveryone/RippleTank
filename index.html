@@ -1,8 +1,9 @@
+<!DOCTYPE html>
 <html>
 
 <head>
 <title>Matthew Wellings &mdash; Water Ripple Demo</title>
-<meta http-equiv="content-type" content="text/html; charset=ISO-8859-1">
+<meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 
 <script type="text/javascript" src="gl-matrix.js"></script>
@@ -732,8 +733,8 @@ body {
       DipperPositionBuffer = gl.createBuffer();
       gl.bindBuffer(gl.ARRAY_BUFFER, DipperPositionBuffer);
       var dippervertices = [
-	  .9,.6,
-	  .9,-.6
+	  .9,1,
+	  .9,-1
       ];
       gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(dippervertices), gl.STATIC_DRAW);
       DipperPositionBuffer.itemSize = 2;
@@ -1224,7 +1225,7 @@ body {
         if (!initBuffers())
 	    return;
 	    
-	layout();	
+	layout();
 	document.body.appendChild( stats.domElement );	
         
         
@@ -1400,27 +1401,43 @@ body {
         requestFrame();    
     }
         
+    var firstlayout = true;
     function layout() {
 	console.log("layout");
-	var topBarHeight = 50;
+	var topBarHeight = tablescroll.offsetHeight;
+// 	console.log(topBarHeight);
+// 	if (topBarHeight>100)
+// 	  topBarHeight=90;
+	console.log(topBarHeight);
 	stats.domElement.style.position = 'absolute';
 	stats.domElement.style.left = '8px';
-	stats.domElement.style.top = window.innerHeight-58;
-	
-	canvas.width = window.innerWidth-20;
-	canvas.height = window.innerHeight-(topBarHeight+42);	
+	stats.domElement.style.top = (window.innerHeight-56) + "px";
+// 	
 	canvas.style.position = 'absolute';
 	canvas.style.left = '8px';
-	canvas.style.top = topBarHeight + 32;
-// 	canvas.style.zIndex = '-1';
-
-	gl.viewportWidth = canvas.width;
-	gl.viewportHeight = canvas.height;
-    
-//         var rotateButton = document.getElementById("projectionButton");
-// 	rotateButton.style.position = 'absolute';
-// 	rotateButton.style.left = '100px';
-// 	rotateButton.style.top = '8px';
+	canvas.style.top = (topBarHeight + 16) + "px";
+	
+	canvas.style.height=(window.innerHeight-(topBarHeight+24))+ "px";
+	canvas.style.width = (window.innerWidth-20)+ "px";
+	var width = canvas.clientWidth;
+	var height = canvas.clientHeight;
+	if (canvas.width != width ||
+	    canvas.height != height) {
+	  canvas.width = width;
+	  canvas.height = height;}
+// 	canvas.width = window.innerWidth-20;
+// 	canvas.height = window.innerHeight-(topBarHeight+20);	
+// // 	canvas.style.zIndex = '-1';
+// 
+	gl.viewportWidth = canvas.clientWidth;
+	gl.viewportHeight = canvas.clientHeight;
+	//This does not work the first time as tablescroll.offsetHeight is not correct. It may be a bad hack but calling this function a second time fixes this.
+	if (firstlayout)
+	{
+	  firstlayout=false;
+	  layout();
+	  return;
+	}
 	requestFrame();
     }
     
@@ -1606,7 +1623,7 @@ body {
     }
 </script>
 </head>
-<body onload="webGLStart();" onresize="layout()">
+<body onpageshow="webGLStart();" onresize="layout()">
     <!--<div id="mainbody">
 	<h1>Matthew Wellings</h1>
 	<p id ="subtitle">Software Developer</p>
@@ -1637,7 +1654,7 @@ body {
 	For my full CV please contact me.
 	on <a href="tel:+441212888633">+44(0)1212888633</a><br>
     </div>-->
-    <div id="table-scroll" style="overflow:auto;height:70">
+    <div id="tablescroll" style="overflow:auto">
     <table  style="height:70" align=center><tr  align=center>
     <td><button id = "runButton" type="button" onclick="runButtonPressed();" style="height:60px; width:60px">Pause</button></td>
     <td><button id = "clearButton" type="button" onclick="clearButtonPressed();" style="height:60px; width:60px">Clear</button>
@@ -1687,6 +1704,6 @@ body {
      </td>
     </tr></table>
     <div>
-    <canvas id="water-canvas" style="border: none;" width="512" height="512"></canvas>    
+    <canvas id="water-canvas" style="border: none; width: 100%;"></canvas>    
 </body>
 </html>
