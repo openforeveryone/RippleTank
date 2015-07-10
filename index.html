@@ -1336,6 +1336,7 @@ body {
 		    rotZ=mouseDragStart.rotZ+(x-mouseDragStart.x)/300;
 		    rotX=mouseDragStart.rotX+(y-mouseDragStart.y)/300;
 		    requestFrame();
+// 		    setURL(true);
 		}
 	    }else if (event.buttons&1 && lastdrop)   
                 addDropAtScreenPos(x, y, true);
@@ -1470,6 +1471,7 @@ body {
 	    renderLabel.innerHTML="Grid";	  	    
 	}
 	requestFrame();
+	setURL();
     }
     
     function projectionButtonPressed()
@@ -1481,6 +1483,7 @@ body {
 	    projectionLabel.innerHTML="2D";
 	rotateAnim=true;
 	requestFrame();
+	setURL();
     }    
     
     function shadingButtonPressed()
@@ -1491,6 +1494,7 @@ body {
 	else
 	    shaderLabel.innerHTML="Height";
 	requestFrame();
+	setURL();
     }
             
     function wallButtonPressed()
@@ -1507,6 +1511,7 @@ body {
 	}
 	clearWallsOnNextFrame=true;
 	requestFrame();
+	setURL();
     }
                 
     function wallBehaviourButtonPressed()
@@ -1515,7 +1520,8 @@ body {
 	if (softWallReflections)
 	    wallBehaviourLabel.innerHTML="Soft";
 	else
-	    wallBehaviourLabel.innerHTML="Hard";	
+	    wallBehaviourLabel.innerHTML="Hard";
+	setURL();	
     }
              
     function edgeBehaviourButtonPressed()
@@ -1531,6 +1537,7 @@ body {
 	    edgeBehaviourLabel.innerHTML="None";
 	}
 	clearWallsOnNextFrame=true;
+	setURL();
     }    
     
     function dipperButtonPressed()
@@ -1540,6 +1547,7 @@ body {
 	    dipperLabel.innerHTML="On";
 	else
 	    dipperLabel.innerHTML="Off";
+	setURL();
     }
     
     function pointDipperButtonPressed()
@@ -1559,6 +1567,7 @@ body {
 	    pointDipperLabel.innerHTML="Off";
 	}	
 	updatePointDippers();
+	setURL();
     }
     
     pointDistance = 1;
@@ -1604,6 +1613,7 @@ body {
 	initWallBuffers();
 	clearWallsOnNextFrame=true;
 	requestFrame();
+	setURL();	
     }
     
     function gapDistancePressed(ds)
@@ -1613,6 +1623,7 @@ body {
 	initWallBuffers();
 	clearWallsOnNextFrame=true;
 	requestFrame();
+	setURL();	
     }
     
     function clearButtonPressed()
@@ -1620,6 +1631,57 @@ body {
 	clearOnNextFrame=true;
 	frameNumber=0;
 	requestFrame();
+	setURL();
+    }
+    
+    function setURL(raplace)
+    {
+	var urlstrings = [];
+	if (render3D)
+	    urlstrings.push("3D=true&RotX="+rotX.toFixed(2)+"&RotZ="+rotZ.toFixed(2));
+	if (!useBumpmap)
+	    urlstrings.push("shder=height");
+	if (renderStyle)
+	    urlstrings.push("renderStyle="+renderStyle);
+	if (edgeReflections)
+	    urlstrings.push("edgeReflections="+((edgeReflections==1)?"Soft":"Hard"));
+	if (!dipper)
+	    urlstrings.push("barDipper=off");
+	if (slits!=2)
+	    urlstrings.push("wallSlits="+slits);
+	if (softWallReflections)
+	    urlstrings.push("wallReflections=Soft");
+	if (gapWidth.toFixed(2)!="0.10")
+	    urlstrings.push("gapWidth="+gapWidth.toFixed(2));
+	if (gapDistance!=0.4)
+	    urlstrings.push("gapDistance="+gapDistance.toFixed(2));
+	if(pointDipperMode==1)
+	    urlstrings.push("pointDipperMode="+"Single");
+	else if(pointDipperMode==2)
+	    urlstrings.push("pointDipperMode="+"2InPhase");
+	else if(pointDipperMode==3)
+	    urlstrings.push("pointDipperMode="+"2Antiphase");
+	else if(pointDipperMode==4)
+	    urlstrings.push("pointDipperMode="+"Doppler");
+	var urlstring=".";
+	if (urlstrings.length)
+	    urlstring = "?";
+	for (var i = 0; i < urlstrings.length; i++)
+	{
+	    urlstring = urlstring + urlstrings[i];
+	    if (i+1 < urlstrings.length)
+	      urlstring = urlstring + "&";
+	}
+// 	console.log(urlstring);
+// 	if (raplace)
+// 	    console.log(urlstring + " raplace");
+// 	else
+// 	    console.log(urlstring + " add ");
+// 	return;
+	if (raplace)
+	    window.history.replaceState(null, null, urlstring);
+	else
+	    window.history.pushState(null, null, urlstring);
     }
 </script>
 </head>
