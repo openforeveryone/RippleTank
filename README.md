@@ -7,6 +7,8 @@ All physics calculations are performed on the GPU using WebGL.
 
 Vist http://MatthewWellings.com/rippletank for the live version.
 
+See http://MatthewWellings.com/rippletank/help for usage documentation
+
 ##Bug Reports
 Please report all bugs on <a href="https://github.com/openforeveryone/RippleTank/issues">GitHub</a>.
 ##Credits
@@ -19,5 +21,3 @@ gl-matrix - High performance matrix and vector operations version 2.2.2   Copyri
 <a href="https://github.com/mrdoob/stats.js">Stats widget</a> (Framerate counter etc.) by mrdoob / <a href="http://mrdoob.com/">http://mrdoob.com/</a>.
 
 The open boundaries equation from <a href=http://www.gdcvault.com/play/203/Fast-Water-Simulation-for-Games">Fast Water Simulation for Games Using Height Fields</a> by Matthias Müller-Fischer
-
-See http://MatthewWellings.com/rippletank/help for usage documentation
