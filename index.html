@@ -18,6 +18,9 @@ body {
     -ms-user-select: none;
     user-select: none;
 }
+a {
+    color: green;
+}
 </style>
 
 <script id="drop-fs" type="x-shader/x-fragment">
@@ -312,7 +315,9 @@ body {
     }
     
     var gl;
-    var minmaxExt;
+    var minmaxExt, texturefloatext;
+    var gpuvendor, gpurenderer, glvendor, glrenderer, glversion; 
+    
     function initGL(canvas) {
         try {
 // 	    gl = WebGLDebugUtils.makeDebugContext(canvas.getContext("experimental-webgl"));
@@ -320,24 +325,66 @@ body {
         } catch (e) {
         }
         if (gl) {
-	    console.log("GL_VENDOR: " + gl.getParameter(gl.VENDOR));
-	    console.log("GL_VERSION: " + gl.getParameter(gl.VERSION));
-	    console.log("GL_RENDERER: " + gl.getParameter(gl.RENDERER));
-	    
-	    var ext = gl.getExtension('WEBGL_debug_renderer_info');
-	    if (ext) {
-		console.log("UNMASKED_VENDOR_WEBGL: " + gl.getParameter(ext.UNMASKED_VENDOR_WEBGL));
-		console.log("UNMASKED_RENDERER_WEBGL: " + gl.getParameter(ext.UNMASKED_RENDERER_WEBGL));
+        glvendor=gl.getParameter(gl.VENDOR);
+        glrenderer=gl.getParameter(gl.RENDERER);
+        glversion=gl.getParameter(gl.VERSION);
+	    console.log("GL_VENDOR: " + glvendor);
+	    console.log("GL_VERSION: " + glversion);
+	    console.log("GL_RENDERER: " + glrenderer);	    
+	    var debug_renderer_infoExt = gl.getExtension('WEBGL_debug_renderer_info');
+	    if (debug_renderer_infoExt) {
+                gpuvendor=gl.getParameter(debug_renderer_infoExt.UNMASKED_VENDOR_WEBGL);
+                gpurenderer=gl.getParameter(debug_renderer_infoExt.UNMASKED_RENDERER_WEBGL);
+		console.log("UNMASKED_VENDOR_WEBGL: " + gpuvendor);
+		console.log("UNMASKED_RENDERER_WEBGL: " + gpurenderer);
 	    }
-	    minmaxExt = gl.getExtension('EXT_blend_minmax');
+	    minmaxExt = gl.getExtension('EXT_blend_minmax');	    
+	    texturefloatext = gl.getExtension('OES_texture_float');
+	    sendMessageHome("Init OK");
             return true;
 	}else{
 	    alert("This page requires WebGL but it cannot be accessed, try upgrading your browser or graphics drivers.");
+	    sendMessageHome("No WebGL");
             return false;
         }
     }
 
-
+    function sendMessageHome(message)
+    {
+        var messageObj = {
+            gpu: {
+                vendor: gpuvendor,
+                renderer: gpurenderer,
+            },
+            browser: {
+                glvendor: glvendor,
+                glversion: glversion,
+                glrenderer: glrenderer,
+                minmaxExt: (minmaxExt != null),
+                texturefloatExt: (texturefloatext != null)
+            },
+            state: {
+                location: window.location,
+                canvasWidth: canvas.clientWidth,
+                canvasHeight: canvas.clientHeight,
+                frameNumber: frameNumber
+            },
+            body: message
+        };
+        var json = JSON.stringify(messageObj);
+        console.log("Sending message home: "+message);
+        xmlhttp=new XMLHttpRequest();
+        xmlhttp.open("POST","http://matthewwellings.com/rippletank/report/",true);
+//         xmlhttp.onreadystatechange=function()
+// 	{
+// 	  if (xmlhttp.readyState==4 && xmlhttp.status==200)
+// 	  {
+// 	    console.log("response: " + xmlhttp.responseText);	   
+// 	  }
+// 	}
+        xmlhttp.send(json);
+    }
+    
     function getShader(gl, id) {
         var shaderScript = document.getElementById(id);
         if (!shaderScript) {
@@ -489,9 +536,8 @@ body {
 	var usingOES_texture_float = false;
 	if (typeof(forceHalfFloat)==='undefined') forceHalfFloat = false;
 	var debugRendererInfo = gl.getExtension('WEBGL_debug_renderer_info');
-	var ext = gl.getExtension('OES_texture_float');
 	//Do not try to use OES_texture_float on Adreno, it does not work with blending.
-	if (!ext || (debugRendererInfo && gl.getParameter(debugRendererInfo.UNMASKED_RENDERER_WEBGL).includes("Adreno")) || forceHalfFloat) 
+	if (!texturefloatext || (debugRendererInfo && gl.getParameter(debugRendererInfo.UNMASKED_RENDERER_WEBGL).includes("Adreno")) || forceHalfFloat) 
 	{	
 	    var ext1 = gl.getExtension('OES_texture_half_float');
 	    if (!ext1)
@@ -828,6 +874,7 @@ body {
     var pointDippers = [];
     var pointDippersChanged = false;    
     var pointDipperMode = 0;
+    var startTime;
 
     function drawScene() {
 // 
@@ -836,8 +883,21 @@ body {
         frameInQueue = false;
 	gl.disable(gl.DEPTH_TEST);
 	gl.disable(gl.CULL_FACE);
+	//Sent home the time it takes to draw 180 frames:
+        if (frameNumber==60)
+        {
+            var d = new Date();
+            startTime = d.getTime(); 
+        }
+        if (frameNumber==240)
+        {
+            var d = new Date();
+            var message = "Perf: 180 Frames " + (d.getTime() - startTime) + "ms";
+            sendMessageHome(message);
+        }
+        //frameNumber is used for stats and calculating dipper phase 
 	if (running)
-	  frameNumber++;      
+	  frameNumber++;   
 	//Add the drops that are in the queue to the framebuffer:
         if (newDrops.length)
         {        
