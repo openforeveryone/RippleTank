@@ -2,7 +2,7 @@
 <html>
 
 <head>
-<title>Matthew Wellings &mdash; Water Ripple Demo</title>
+<title>Ripple Tank Sim</title>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 
@@ -1154,7 +1154,7 @@ a {
 	    mat4.translate(vMatrix, vMatrix, [0.0, 0.0, -1.82]); 
 	    var rotateProgressNL = (Math.sin((rotateProgress+1.5)*Math.PI)+1)/2;
 	    mat4.translate(vMatrix, vMatrix, [0,0, -(1.25-zoom)*rotateProgressNL]);
-// 	    mat4.translate(vMatrix, vMatrix, [0,.5*rotateProgressNL, 0]);
+	    mat4.translate(vMatrix, vMatrix, [0,.4*rotateProgressNL*-Math.sin(rotX*2), 0]);
 	    mat4.rotateX(vMatrix, vMatrix, rotX*rotateProgressNL);
 	    mat4.rotateZ(mMatrix, mMatrix, rotZ*rotateProgressNL);
 // 	    mat4.translate(mvMatrix, mvMatrix, [0,0, .5*rotateProgressNL]);   	
@@ -1664,7 +1664,7 @@ a {
 	if (render3D)
 	    urlstrings.push("3D=true&rotX="+rotX.toFixed(2)+"&rotZ="+rotZ.toFixed(2));
 	if (!useBumpmap)
-	    urlstrings.push("shder=height");
+	    urlstrings.push("shader=height");
 	if (renderStyle)
 	    urlstrings.push("renderStyle="+renderStyle);
 	if (edgeReflections)
@@ -1713,7 +1713,7 @@ a {
 	    render3D = (query["3D"]=="true");
 	    rotateAnim=true;
 	}
-	useBumpmap = !(query["shder"]=="height");
+	useBumpmap = !(query["shader"]=="height");
 	renderStyle = query["renderStyle"];
 	if (query["edgeReflections"]=="Soft")
 	    edgeReflections=1;
