@@ -537,7 +537,7 @@ a {
 	if (typeof(forceHalfFloat)==='undefined') forceHalfFloat = false;
 	var debugRendererInfo = gl.getExtension('WEBGL_debug_renderer_info');
 	//Do not try to use OES_texture_float on Adreno, it does not work with blending.
-	if (!texturefloatext || (debugRendererInfo && gl.getParameter(debugRendererInfo.UNMASKED_RENDERER_WEBGL).includes("Adreno")) || forceHalfFloat) 
+	if (!texturefloatext || (debugRendererInfo && glrenderer.indexOf("Adreno")>-1) || forceHalfFloat) 
 	{	
 	    var ext1 = gl.getExtension('OES_texture_half_float');
 	    if (!ext1)
