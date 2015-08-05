@@ -315,7 +315,7 @@ a {
     }
     
     var gl;
-    var minmaxExt, texturefloatext;
+    var minmaxExt, texturefloatext, debug_renderer_infoExt;
     var gpuvendor, gpurenderer, glvendor, glrenderer, glversion; 
     
     function initGL(canvas) {
@@ -331,7 +331,7 @@ a {
 	    console.log("GL_VENDOR: " + glvendor);
 	    console.log("GL_VERSION: " + glversion);
 	    console.log("GL_RENDERER: " + glrenderer);	    
-	    var debug_renderer_infoExt = gl.getExtension('WEBGL_debug_renderer_info');
+	    debug_renderer_infoExt = gl.getExtension('WEBGL_debug_renderer_info');
 	    if (debug_renderer_infoExt) {
                 gpuvendor=gl.getParameter(debug_renderer_infoExt.UNMASKED_VENDOR_WEBGL);
                 gpurenderer=gl.getParameter(debug_renderer_infoExt.UNMASKED_RENDERER_WEBGL);
@@ -535,9 +535,8 @@ a {
 	var framebufferError = false;
 	var usingOES_texture_float = false;
 	if (typeof(forceHalfFloat)==='undefined') forceHalfFloat = false;
-	var debugRendererInfo = gl.getExtension('WEBGL_debug_renderer_info');
 	//Do not try to use OES_texture_float on Adreno, it does not work with blending.
-	if (!texturefloatext || (debugRendererInfo && glrenderer.indexOf("Adreno")>-1) || forceHalfFloat) 
+	if (!texturefloatext || (debug_renderer_infoExt && gpurenderer.indexOf("Adreno")>-1) || forceHalfFloat) 
 	{	
 	    var ext1 = gl.getExtension('OES_texture_half_float');
 	    if (!ext1)
