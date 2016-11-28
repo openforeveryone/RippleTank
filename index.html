@@ -535,13 +535,22 @@ a {
 	var framebufferError = false;
 	var usingOES_texture_float = false;
 	if (typeof(forceHalfFloat)==='undefined') forceHalfFloat = false;
-	//Do not try to use OES_texture_float on Adreno, it does not work with blending.
-	if (!texturefloatext || (debug_renderer_infoExt && gpurenderer.indexOf("Adreno")>-1) || forceHalfFloat) 
+	//Do not try to use OES_texture_float on older Adrenos, it does not work with blending.
+	//Newer Adrenos however will not work with OES_texture_half_float.
+	if(debug_renderer_infoExt && gpurenderer.indexOf("Adreno")>-1)
+	{
+	    if (gpurenderer.split(" ")[2] < 400)
+	    {
+		//This is a 2** or 3** series Adreno.
+		forceHalfFloat=true;
+	    }
+	}
+	if (!texturefloatext || forceHalfFloat) 
 	{	
 	    var ext1 = gl.getExtension('OES_texture_half_float');
 	    if (!ext1)
 	    {
-		alert("This page requires ether the 'OES_texture_half_float' extension, try upgrading your browser or graphics drivers.");
+		alert("This page requires ether the 'OES_texture_half_float' or the 'OES_texture_float' extension, try upgrading your browser or graphics drivers.");
 		return false;
 	    }else{
 		console.log("Using OES_texture_half_float");
@@ -557,7 +566,7 @@ a {
 	
 	checkError();
 	waterHeightTX = gl.createTexture();
-	gl.bindTexture(gl.TEXTURE_2D, waterHeightTX);	
+	gl.bindTexture(gl.TEXTURE_2D, waterHeightTX);
 	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
 	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 	gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, WaterBufferSize, WaterBufferSize, 0, gl.RGBA, floatEnum, null);
@@ -567,9 +576,20 @@ a {
 	gl.bindFramebuffer(gl.FRAMEBUFFER, waterHeightFramebuffer);
 	gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, waterHeightTX, 0);
 	gl.viewport(0, 0, WaterBufferSize, WaterBufferSize); 
-	if (gl.checkFramebufferStatus(gl.FRAMEBUFFER)!=gl.FRAMEBUFFER_COMPLETE)
+	framebufferStatus = gl.checkFramebufferStatus(gl.FRAMEBUFFER);
+	if (framebufferStatus!=gl.FRAMEBUFFER_COMPLETE)
 	{
 	  console.error("Framebuffer Error 1");
+	  if (forceHalfFloat)
+	  {
+	    alert("There was a problem creating a floating point framebuffer.");
+	    if (framebufferStatus == gl.FRAMEBUFFER_INCOMPLETE_ATTACHMENT)
+	    {
+	        sendMessageHome("GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT");
+	        console.error("GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT");
+	    }
+	    sendMessageHome("framebufferStatus!=gl.FRAMEBUFFER_COMPLETE framebufferStatus:" + framebufferStatus);
+	  }
 	  framebufferError=true;
 	}
 	gl.clearColor(0.0, 0.0, 0.0, 1.0);  
@@ -1917,7 +1937,7 @@ a {
     <button id = "pointDistanceDn" type="button" onclick="pointDistancePressed(-1);" style="height:20px; width:30px">-</button></span>
     <br>
     <span id="pointDistanceLabel">1</span></td><td>&nbsp;&nbsp;</td>
-     <td style="border: 1px solid black;"><span  style="white-space: nowrap;">&#9426;Matthew Wellings 2015</span><br><span  style="white-space: nowrap;">Licence: GNU GPL v3</span><br>
+     <td style="border: 1px solid black;"><span  style="white-space: nowrap;">&#9426;<a href="http://matthewwellings.com/">Matthew Wellings</a> 2015-16</span><br><span  style="white-space: nowrap;">Licence: GNU GPL v3</span><br>
      <a href="http://matthewwellings.com/rippletank/help">Help</a>&nbsp;&nbsp;&nbsp;<a href="http://matthewwellings.com/rippletank/source">Source</a>
      </td>
     </tr></table>
