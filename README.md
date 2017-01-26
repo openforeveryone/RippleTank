@@ -12,7 +12,7 @@ See http://MatthewWellings.com/rippletank/help for usage documentation
 ##Bug Reports
 Please report all bugs on <a href="https://github.com/openforeveryone/RippleTank/issues">GitHub</a>.
 ##Credits
-All code in the main file except where stated is ⓒMatthew Wellings 2015 and may be distributed under the GNU GPL v3.
+All code in the main file except where stated is ⓒMatthew Wellings 2015 and may be distributed under the MIT License.
 
 This code uses:
 
